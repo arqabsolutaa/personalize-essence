@@ -256,3 +256,7 @@ Esse é o módulo mais reformulado recentemente — importante entender bem:
 - **Menu lateral por área:** Início (volta ao Bom dia) → Visão geral → demais telas; rodapé com usuário e Sair. Financeiro ganhou Visão geral própria.
 - **Estoque:** cartões (capa = imagem do revestimento, quando cadastrada) com alternância Cartões | Lista.
 - **Estilo:** tema fixo grafite (variáveis em `:root` no bloco "GRAFITE"); o seletor de cores antigo foi desativado.
+
+## m² informado e compras lançadas (nov/2026)
+- **Personalização:** cada parede tem o campo "m² informado" (vale no lugar do cálculo linear × altura; se limpar, volta ao calculado). A caixa "Metragem informada (m²)" permite lançar ambiente + m² + piso direto (key `apto-Ambiente-Metragem informada-Lxxxx`, com `manual:true`/`livre:true` em `selecoes`).
+- **Compras:** continua mostrando o que o cálculo diz que falta (só personalizações ativas, última versão de cada apto/módulo, desconta aptos que já tiveram saída e a reserva técnica). Nova seção "Compras lançadas por você" (aba `Compras_Manuais`, ações `addCompraManual`/`updateCompraManual`/`deleteCompraManual`, exige Code.gs novo); entra no PDF e no indicador, sem mexer no estoque nem nas personalizações.

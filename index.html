@@ -2816,6 +2816,9 @@ tr:hover td{background:#fafafa}
 .pv-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0}.pv-row span{color:var(--text2)}.pv-row.mut span,.pv-row.mut strong{color:var(--text3);font-weight:500}.pv-row.neg strong{color:var(--danger)}
 .pv-foot{font-size:12px;color:var(--text3);margin-top:10px}
 @media (max-width:700px){.pv-lin{flex-wrap:wrap}.pv-data{width:100%}#cp-stats,#prev-stats{grid-template-columns:1fr 1fr !important}}
+.mm-row{display:flex;align-items:center;gap:8px;margin:6px 0 2px}.mm-row label{font-size:11px;color:var(--text3);white-space:nowrap;font-weight:500}.mm-row input{width:100px;font-size:12px;padding:4px 8px}
+.mm-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center}.mm-form input,.mm-form select{min-width:0}.mm-form #ml-amb{flex:1 1 150px}.mm-form #ml-m2{flex:0 0 90px}.mm-form #ml-piso{flex:2 1 220px}.mm-form .btn{flex:none}
+.cm-linha{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style>
 <script>
 // ===== TEMA DE CORES (cada pessoa escolhe a sua; fica salvo neste navegador) =====
@@ -3211,6 +3214,7 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
         <p>Revestimentos que faltam pra cobrir os apês que ainda NÃO retiraram o material (já com a margem de perda). Apê que já teve saída não entra na conta</p>
       </div>
       <div class="header-actions">
+        <button class="btn btn-primary" onclick="abrirCompraManual()" style="margin-right:4px">+ Nova compra</button>
         <button class="btn btn-secondary" onclick="gerarPDFNecessidadeCompra()" id="btn-pdf-necessidadecompra" style="margin-right:4px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           Gerar PDF
@@ -3224,8 +3228,27 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
     <div class="page-content">
       <div id="necessidadecompra-stats" class="stats-row"></div>
       <div id="necessidadecompra-lista"></div>
+      <div class="cp-col" style="margin-top:28px"><h3>Compras lançadas por você</h3><span>quando você já sabe quanto precisa comprar</span></div>
+      <div id="necessidadecompra-manuais"></div>
     </div>
   </div><!-- fim necessidadecompra-screen -->
+
+  <div id="modal-compra-manual" class="modal-overlay">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header"><h2 id="cm-titulo">Nova compra</h2><button class="modal-close" onclick="fecharModal('modal-compra-manual')">&times;</button></div>
+      <div class="modal-body">
+        <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Use quando você já sabe quanto precisa comprar (ex.: a arquiteta incluiu mais paredes e faltou). Isso <strong>não mexe</strong> na personalização nem no estoque.</p>
+        <div class="form-group" style="margin-bottom:12px"><label>Revestimento</label><select class="form-control" id="cm-rev" onchange="cmRecalc('rev')"></select></div>
+        <div class="cm-linha" style="margin-bottom:6px">
+          <div class="form-group"><label>Quantidade em m²</label><input class="form-control" id="cm-m2" type="number" step="0.01" min="0" inputmode="decimal" oninput="cmRecalc('m2')"></div>
+          <div class="form-group"><label>ou em caixas</label><input class="form-control" id="cm-cx" type="number" step="1" min="0" inputmode="numeric" oninput="cmRecalc('cx')"></div>
+        </div>
+        <p id="cm-info" style="font-size:11.5px;color:var(--text3);margin-bottom:12px;min-height:16px"></p>
+        <div class="form-group"><label>Motivo / apartamento</label><textarea class="form-control" id="cm-obs" rows="2" placeholder="Ex.: Apto 81 — arquiteta incluiu mais paredes"></textarea></div>
+      </div>
+      <div class="modal-footer"><button class="btn btn-secondary" onclick="fecharModal('modal-compra-manual')">Cancelar</button><button class="btn btn-primary" id="cm-salvar" onclick="salvarCompraManual()">Salvar compra</button></div>
+    </div>
+  </div>
 
   <!-- Modal detalhe por apê -->
   <div id="modal-necessidadecompra-detalhe" class="modal-overlay">
@@ -6282,10 +6305,12 @@ function restaurarEstadoCalc() {
       for (const [key, v] of Object.entries(estado.selecoes || {})) {
         const el = document.getElementById('wi-' + key);
         const fs = document.getElementById('fs-' + key);
+        if (!el && v.livre && _ehM2Livre(key, v)) { calcSelecoes[key] = v; _inserirM2Livre(key, v); continue; }
         if (el && !el.classList.contains('checked')) {
           el.classList.add('checked');
           calcSelecoes[key] = v;
         }
+        if (el && v.manual) { const mm = document.getElementById('mm-' + key); if (mm) mm.value = v.m2; }
         if (fs && v.piso) fs.value = v.piso;
       }
       atualizarResumo();
@@ -7169,13 +7194,13 @@ async function lerDados(forcarFresco) {
         ? 'https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/data.json'
         : '/data.json';
       const r = await fetch(baseUrl + '?t=' + Date.now());
-      if (r.ok) { const j = await r.json(); if (Array.isArray(j.reservasTecnicas)) dadosReservas = j.reservasTecnicas; return j; }
+      if (r.ok) { const j = await r.json(); if (Array.isArray(j.reservasTecnicas)) dadosReservas = j.reservasTecnicas; if (Array.isArray(j.comprasManuais)) dadosComprasManuais = j.comprasManuais; return j; }
     } catch(e) {}
   }
   // Apps Script direto (sempre fresco, sem cache de CDN)
   try {
     const result = await jsonp(SCRIPT_URL + '?action=getDados');
-    if (result && result.data) { if (Array.isArray(result.data.reservasTecnicas)) dadosReservas = result.data.reservasTecnicas; return result.data; }
+    if (result && result.data) { if (Array.isArray(result.data.reservasTecnicas)) dadosReservas = result.data.reservasTecnicas; if (Array.isArray(result.data.comprasManuais)) dadosComprasManuais = result.data.comprasManuais; return result.data; }
   } catch(e) {}
   // Se a busca fresca falhar (ou vier vazia), NUNCA retorna objeto vazio —
   // isso faria a tela apagar listas que já estavam certas. Lança erro pra quem
@@ -12022,6 +12047,8 @@ function renderVgPendencias(personalizacoes) {
 
 // ===================== NECESSIDADE DE COMPRA (TELA) =====================
 let _necessidadeCompraLista = [];
+let dadosComprasManuais = [];
+let _compraManualEditId = null;
 
 async function loadNecessidadeCompra() {
   const cont = document.getElementById('necessidadecompra-lista');
@@ -12033,6 +12060,7 @@ async function loadNecessidadeCompra() {
     if (dados.personalizar) dadosPersonalizar = dados.personalizar;
     if (dados.revestimentos) dadosRevestimentos = dados.revestimentos;
     if (dados.saidas) dadosSaidas = dados.saidas;
+    if (Array.isArray(dados.comprasManuais)) dadosComprasManuais = dados.comprasManuais;
   } catch(e) { /* usa o que já tiver carregado */ }
   renderNecessidadeCompra();
 }
@@ -12052,10 +12080,12 @@ function renderNecessidadeCompra() {
   statsEl.innerHTML = `
     <div class="stat-card"><div class="stat-label">Revestimentos em Falta</div><div class="stat-value">${faltando.length}</div></div>
     <div class="stat-card"><div class="stat-label">Total Faltando</div><div class="stat-value">${totalM2Faltam.toFixed(1)} m²</div></div>
+    <div class="stat-card"><div class="stat-label">Compras lançadas (a comprar)</div><div class="stat-value">${_comprasManuaisPend().reduce((a, c) => a + _cmM2(c), 0).toFixed(1)} m²</div></div>
   `;
 
+  renderComprasManuais();
   if (!faltando.length) {
-    cont.innerHTML = '<div class="empty-state"><strong>Nada faltando 🎉</strong><p>O estoque atual cobre tudo que já foi personalizado nos apês (com a margem de perda incluída)</p></div>';
+    cont.innerHTML = '<div class="empty-state"><strong>Nada faltando pelo cálculo 🎉</strong><p>O estoque atual cobre tudo que já foi personalizado nos apês ativos (com a margem de perda incluída)</p></div>';
     return;
   }
 
@@ -12072,6 +12102,84 @@ function renderNecessidadeCompra() {
       <td><button class="btn btn-secondary" style="font-size:11px;padding:5px 10px" onclick="abrirDetalheNecessidadeCompra(${i})">Aptos</button></td>
     </tr>`).join('')}</tbody>
   </table></div>`;
+}
+
+
+// ---------- Compras lançadas à mão ----------
+const _cmM2 = c => { const m2 = parseFloat(c.qtd_m2) || 0; if (m2 > 0) return m2; const rev = (dadosRevestimentos || []).find(r => String(r.codigo) === String(c.codigo_rev) || String(r.id) === String(c.codigo_rev)); return (parseFloat(c.qtd_caixas) || 0) * (parseFloat(rev && rev.m2_por_caixa) || 0); };
+const _comprasManuaisPend = () => (dadosComprasManuais || []).filter(c => String(c.status || 'a_comprar') !== 'comprado');
+function renderComprasManuais() {
+  const el = document.getElementById('necessidadecompra-manuais'); if (!el) return;
+  const lista = (dadosComprasManuais || []).slice().sort((a, b) => (String(a.status) === 'comprado') - (String(b.status) === 'comprado'));
+  if (!lista.length) { el.innerHTML = '<div class="empty-state" style="padding:26px"><p>Nenhuma compra lançada. Clique em <strong>+ Nova compra</strong> quando já souber quanto precisa comprar.</p></div>'; return; }
+  const f2 = v => v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  el.innerHTML = '<div class="table-wrap"><table><thead><tr><th>Revestimento</th><th>Quantidade</th><th>Motivo</th><th>Lançada</th><th>Situação</th><th></th></tr></thead><tbody>' + lista.map(c => {
+    const rev = (dadosRevestimentos || []).find(r => String(r.codigo) === String(c.codigo_rev) || String(r.id) === String(c.codigo_rev));
+    const comprado = String(c.status) === 'comprado';
+    const cx = parseFloat(c.qtd_caixas) || 0;
+    return '<tr style="' + (comprado ? 'opacity:.55' : '') + '"><td style="font-weight:500">' + esc(c.revestimento || (rev && rev.nome) || c.codigo_rev) + (rev && rev.tamanho ? ' <span style="color:var(--text3);font-size:11px">' + esc(rev.tamanho) + '</span>' : '') + '</td>' +
+      '<td><strong>' + f2(_cmM2(c)) + ' m²</strong>' + (cx > 0 ? '<div style="font-size:11px;color:var(--text3)">' + cx + ' cx</div>' : '') + '</td>' +
+      '<td style="color:var(--text2);max-width:280px">' + esc(c.obs || '—') + '</td><td style="color:var(--text3);font-size:12px">' + esc(c.criado_em || '') + '</td>' +
+      '<td>' + (comprado ? '<span class="badge badge-green">Comprado</span>' : '<span class="badge badge-warn">A comprar</span>') + '</td>' +
+      '<td style="white-space:nowrap;text-align:right"><button class="btn btn-secondary" style="font-size:11px;padding:5px 10px" onclick="marcarCompraManual(\'' + c.id + '\',' + (comprado ? "'a_comprar'" : "'comprado'") + ')">' + (comprado ? 'Voltar p/ a comprar' : '✓ Comprado') + '</button> ' +
+      '<button class="btn btn-secondary" style="font-size:11px;padding:5px 10px" onclick="abrirCompraManual(\'' + c.id + '\')">Editar</button> ' +
+      '<button class="btn btn-secondary" style="font-size:11px;padding:5px 10px;color:var(--danger)" onclick="excluirCompraManual(\'' + c.id + '\')">Excluir</button></td></tr>';
+  }).join('') + '</tbody></table></div>';
+}
+function abrirCompraManual(id) {
+  _compraManualEditId = id || null;
+  const c = id ? (dadosComprasManuais || []).find(x => String(x.id) === String(id)) : null;
+  const lista = (dadosRevestimentos || []).slice().sort((a, b) => String(a.nome || '').localeCompare(String(b.nome || ''), 'pt-BR'));
+  const atual = c ? String(c.codigo_rev) : '';
+  document.getElementById('cm-rev').innerHTML = '<option value="">— Escolha o revestimento —</option>' + lista.map(r => { const v = String(r.codigo || r.id); return '<option value="' + v.replace(/"/g, '&quot;') + '"' + (v === atual ? ' selected' : '') + '>' + (r.nome || '-') + (r.tamanho ? ' [' + r.tamanho + ']' : '') + ' · ' + (r.codigo || '') + '</option>'; }).join('');
+  document.getElementById('cm-m2').value = c ? (parseFloat(c.qtd_m2) || '') : '';
+  document.getElementById('cm-cx').value = c ? (parseFloat(c.qtd_caixas) || '') : '';
+  document.getElementById('cm-obs').value = c ? (c.obs || '') : '';
+  document.getElementById('cm-titulo').textContent = c ? 'Editar compra' : 'Nova compra';
+  cmRecalc('rev');
+  abrirModal('modal-compra-manual');
+}
+function _cmRev() { const v = document.getElementById('cm-rev').value; return (dadosRevestimentos || []).find(r => String(r.codigo || r.id) === v); }
+function cmRecalc(origem) {
+  const rev = _cmRev(), m2cx = parseFloat(rev && rev.m2_por_caixa) || 0, info = document.getElementById('cm-info');
+  const m2el = document.getElementById('cm-m2'), cxel = document.getElementById('cm-cx');
+  if (m2cx > 0) {
+    if (origem === 'm2') { const m = parseFloat(m2el.value) || 0; cxel.value = m > 0 ? Math.ceil(m / m2cx - 1e-9) : ''; }
+    else if (origem === 'cx') { const c = parseFloat(cxel.value) || 0; m2el.value = c > 0 ? (Math.round(c * m2cx * 100) / 100) : ''; }
+    info.textContent = '1 caixa = ' + m2cx.toLocaleString('pt-BR') + ' m² · as caixas são arredondadas para cima';
+  } else info.textContent = rev ? 'Este revestimento não tem m² por caixa cadastrado — informe só o m² (ou só as caixas).' : '';
+}
+async function salvarCompraManual() {
+  const rev = _cmRev(), m2 = parseFloat(document.getElementById('cm-m2').value) || 0, cx = parseFloat(document.getElementById('cm-cx').value) || 0;
+  if (!rev) { showToast('Escolha o revestimento', 'error'); return; }
+  if (m2 <= 0 && cx <= 0) { showToast('Informe quanto precisa comprar', 'error'); return; }
+  const dados = { codigo_rev: String(rev.codigo || rev.id), revestimento: rev.nome || '', qtd_m2: m2, qtd_caixas: cx, obs: document.getElementById('cm-obs').value.trim() };
+  const btn = document.getElementById('cm-salvar'); btn.disabled = true;
+  try {
+    if (_compraManualEditId) {
+      await apiPost('updateCompraManual', { ...dados, id: _compraManualEditId });
+      const i = dadosComprasManuais.findIndex(x => String(x.id) === String(_compraManualEditId));
+      if (i >= 0) dadosComprasManuais[i] = { ...dadosComprasManuais[i], ...dados };
+      showToast('Compra atualizada!', 'success');
+    } else {
+      const r = await apiPost('addCompraManual', { ...dados, status: 'a_comprar' });
+      dadosComprasManuais.push({ id: (r && (r.id || (r.data && r.data.id))) || ('tmp_' + Date.now()), ...dados, status: 'a_comprar', criado_em: new Date().toLocaleDateString('pt-BR') });
+      showToast('Compra lançada!', 'success');
+    }
+    fecharModal('modal-compra-manual'); renderNecessidadeCompra();
+  } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+  btn.disabled = false;
+}
+async function marcarCompraManual(id, status) {
+  const c = dadosComprasManuais.find(x => String(x.id) === String(id)); if (!c) return;
+  const antes = c.status; c.status = status; renderNecessidadeCompra();
+  try { await apiPost('updateCompraManual', { id, status }); } catch (e) { c.status = antes; renderNecessidadeCompra(); showToast('Erro ao salvar: ' + e.message, 'error'); }
+}
+async function excluirCompraManual(id) {
+  if (!confirm('Excluir esta compra lançada?')) return;
+  try { await apiAction('deleteCompraManual', id); dadosComprasManuais = dadosComprasManuais.filter(x => String(x.id) !== String(id)); renderNecessidadeCompra(); showToast('Compra excluída', 'success'); }
+  catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 function abrirDetalheNecessidadeCompra(idx) {
@@ -12096,7 +12204,8 @@ function abrirDetalheNecessidadeCompra(idx) {
 }
 
 async function gerarPDFNecessidadeCompra() {
-  const faltando = (_necessidadeCompraLista.length ? _necessidadeCompraLista : _calcularNecessidadeCompra()).filter(x => x.saldoM2 > 0.01);
+  const manuaisPdf = _comprasManuaisPend().map(c => ({ manual: true, obs: c.obs || '', saldoM2: _cmM2(c), rev: (dadosRevestimentos || []).find(r => String(r.codigo) === String(c.codigo_rev) || String(r.id) === String(c.codigo_rev)) || { nome: c.revestimento, tamanho: '' } }));
+  const faltando = (_necessidadeCompraLista.length ? _necessidadeCompraLista : _calcularNecessidadeCompra()).filter(x => x.saldoM2 > 0.01).concat(manuaisPdf);
   if (!faltando.length) { showToast('Nada faltando pra gerar relatório', 'error'); return; }
   showToast('Gerando PDF...', 'success');
   try {
@@ -12133,12 +12242,12 @@ async function gerarPDFNecessidadeCompra() {
       const nomeLinha = doc.splitTextToSize(x.rev.nome||'—', 82)[0];
       doc.text(nomeLinha, 8, y+7);
       doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...CORES.cinza);
-      doc.text(doc.splitTextToSize('Aptos: ' + _aptosDoItem(x).join(', '), 82)[0], 8, y+12.5);
+      doc.text(doc.splitTextToSize(x.manual ? ('Compra lançada' + (x.obs ? ' · ' + x.obs : '')) : ('Aptos: ' + _aptosDoItem(x).join(', ')), 82)[0], 8, y+12.5);
       doc.setFontSize(8.5); doc.setTextColor(...CORES.texto);
       doc.text(String(x.rev.tamanho||'—'), 95, y+9);
-      doc.text(fmt2(x.estoqueM2) + ' m²', 122, y+9);
-      if (x.reservadoM2 > 0.005) { doc.setFontSize(6.5); doc.setTextColor(...CORES.cinza); doc.text('reserva técnica: ' + fmt2(x.reservadoM2) + ' m²', 122, y+13); doc.setFontSize(8.5); doc.setTextColor(...CORES.texto); }
-      doc.text(fmt2(x.necessarioM2) + ' m²', 152, y+9);
+      doc.text(x.manual ? '—' : fmt2(x.estoqueM2) + ' m²', 122, y+9);
+      if (!x.manual && x.reservadoM2 > 0.005) { doc.setFontSize(6.5); doc.setTextColor(...CORES.cinza); doc.text('reserva técnica: ' + fmt2(x.reservadoM2) + ' m²', 122, y+13); doc.setFontSize(8.5); doc.setTextColor(...CORES.texto); }
+      doc.text(x.manual ? '—' : fmt2(x.necessarioM2) + ' m²', 152, y+9);
       doc.setFont('helvetica','bold'); doc.setTextColor(...CORES.secundaria);
       doc.text(fmt2(x.saldoM2) + ' m²', 202, y+9, {align:'right'});
       doc.setDrawColor(...CORES.cinzaClaro); doc.setLineWidth(0.2);
@@ -13222,7 +13331,8 @@ function selecionarAp() {
       const isChecked = selPreVal ? true : false;
       const pisoPre = selPreVal?.piso || '';
       // Registrar na calcSelecoes se já tem seleção
-      if (selPreVal) { calcSelecoes[key] = { m2: parseFloat(m2), piso: pisoPre }; }
+      const manualPre = (selPreVal && selPreVal.manual && parseFloat(selPreVal.m2) > 0) ? parseFloat(selPreVal.m2) : 0;
+      if (selPreVal) { calcSelecoes[key] = manualPre ? { m2: manualPre, piso: pisoPre, manual: true } : { m2: parseFloat(m2), piso: pisoPre }; }
       if (selPreKey) chavesUsadas.add(selPreKey);
       const opcoesRev = dadosRevestimentos.map(r => {
         const estoque = parseFloat(r.estoque_m2) || 0;
@@ -13234,13 +13344,14 @@ function selecionarAp() {
         const selected = (String(r.id||r.codigo) === String(pisoPre)) ? 'selected' : '';
         return `<option value="${r.id||r.codigo}" style="${styleOpt}" ${selected}>${r.nome} [${r.tamanho||''}]</option>`;
       }).join('');
-      html += `<div class="wall-item${isChecked ? ' checked' : ''}" id="wi-${key}" onclick="toggleWall('${key}', ${parseFloat(m2)}, this)">
+      html += `<div class="wall-item${isChecked ? ' checked' : ''}" id="wi-${key}" data-m2calc="${parseFloat(m2)}" onclick="toggleWall('${key}', ${parseFloat(m2)}, this)">
         <div class="wall-check" id="wc-${key}">
           <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div class="wall-info">
           <p>${p.parede}</p>
           <span>${m2} m² · ${p.metro_linear}m × ${p.altura}m</span>
+          <div class="mm-row" onclick="event.stopPropagation()"><label for="mm-${key}">m² informado</label><input id="mm-${key}" class="form-control" type="number" step="0.01" min="0" inputmode="decimal" placeholder="${m2}" value="${manualPre || ''}" oninput="mudarM2Manual('${key}')"></div>
           <div class="floor-select-row" onclick="event.stopPropagation()">
             <select class="form-control" id="fs-${key}" style="font-size:12px;padding:4px 8px;width:100%" onchange="atualizarResumo()">
               <option value="">— Piso —</option>
@@ -13257,7 +13368,10 @@ function selecionarAp() {
   // que não fazem parte da lista padrão da aba Paredes — precisam ser reconstruídas à parte
   // na edição, senão desaparecem da tela mesmo continuando salvas e contando no total
   if (window._selecoesParaRestaurar) {
-    const extras = Object.entries(window._selecoesParaRestaurar).filter(([k]) => !chavesUsadas.has(k));
+    const todosExtras = Object.entries(window._selecoesParaRestaurar).filter(([k]) => !chavesUsadas.has(k));
+    const extras = todosExtras.filter(([k, v]) => !_ehM2Livre(k, v));
+    window._livresParaRestaurar = todosExtras.filter(([k, v]) => _ehM2Livre(k, v));
+    window._livresParaRestaurar.forEach(([k, v]) => { calcSelecoes[k] = { ...v, m2: parseFloat(v.m2) || 0, manual: true, livre: true }; });
     if (extras.length) {
       html += '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">' +
         '<div style="padding:10px 14px;background:var(--surface2)"><span style="font-size:13px;font-weight:600;color:var(--text)">Paredes adicionais</span></div>' +
@@ -13290,7 +13404,18 @@ function selecionarAp() {
       html += '</div></div></div>';
     }
   }
+  html += '<div style="margin-bottom:10px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">' +
+    '<div style="padding:10px 14px;background:var(--surface2)"><span style="font-size:13px;font-weight:600;color:var(--text)">Metragem informada (m²)</span> <span style="font-size:11px;color:var(--text3)">· para quando a arquiteta já mandou os m²</span></div>' +
+    '<div style="padding:12px;background:var(--surface)"><div class="mm-form" onclick="event.stopPropagation()">' +
+      '<input id="ml-amb" class="form-control" list="ml-amb-list" placeholder="Ambiente (ex: Sala)">' +
+      '<datalist id="ml-amb-list">' + localKeys.map(l => '<option value="' + l.replace(/"/g, '&quot;') + '">').join('') + '</datalist>' +
+      '<input id="ml-m2" class="form-control" type="number" step="0.01" min="0" inputmode="decimal" placeholder="m²">' +
+      '<select id="ml-piso" class="form-control"><option value="">— Piso —</option>' + _opcoesRevHTML('') + '</select>' +
+      '<button class="btn btn-primary" onclick="adicionarM2Livre()">+ Adicionar</button>' +
+    '</div><div id="calc-livre-lista" class="wall-grid" style="margin-top:12px"></div></div></div>';
   document.getElementById('calc-paredes-container').innerHTML = html;
+  (window._livresParaRestaurar || []).forEach(([k, v]) => _inserirM2Livre(k, calcSelecoes[k]));
+  window._livresParaRestaurar = null;
   document.getElementById('calc-step2').style.display = 'block';
   document.getElementById('calc-step3').style.display = 'block';
   // Só limpar seleções se NÃO for edição
@@ -13313,12 +13438,57 @@ function selecionarAp() {
 function toggleWall(key, m2, el) {
   el.classList.toggle('checked');
   if (el.classList.contains('checked')) {
-    calcSelecoes[key] = { m2, piso: document.getElementById('fs-' + key)?.value };
+    const mm = _lerM2Manual(key);
+    calcSelecoes[key] = mm > 0 ? { m2: mm, piso: document.getElementById('fs-' + key)?.value, manual: true } : { m2, piso: document.getElementById('fs-' + key)?.value };
   } else {
     delete calcSelecoes[key];
   }
   atualizarResumo();
   salvarEstadoCalc();
+}
+function _lerM2Manual(key) {
+  const el = document.getElementById('mm-' + key); if (!el) return 0;
+  const v = parseFloat(String(el.value).replace(',', '.')); return v > 0 ? v : 0;
+}
+function _ehM2Livre(k, v) { const pt = String(k).split('-'); return pt.length >= 4 && pt[pt.length - 2] === 'Metragem informada'; }
+function _opcoesRevHTML(sel) {
+  return (dadosRevestimentos || []).map(r => `<option value="${r.id||r.codigo}" ${String(r.id||r.codigo) === String(sel) ? 'selected' : ''}>${r.nome} [${r.tamanho||''}]</option>`).join('');
+}
+function mudarM2Manual(key) {
+  const wi = document.getElementById('wi-' + key); if (!wi) return;
+  const calc = parseFloat(wi.dataset.m2calc) || 0, mm = _lerM2Manual(key);
+  const piso = document.getElementById('fs-' + key)?.value || '';
+  if (wi.dataset.livre) {
+    if (mm > 0) calcSelecoes[key] = { m2: mm, piso, manual: true, livre: true }; else delete calcSelecoes[key];
+  } else if (mm > 0) { wi.classList.add('checked'); calcSelecoes[key] = { m2: mm, piso, manual: true }; }
+  else if (calcSelecoes[key]) { calcSelecoes[key] = { m2: calc, piso }; }
+  atualizarResumo();
+}
+function _inserirM2Livre(key, val) {
+  const box = document.getElementById('calc-livre-lista'); if (!box) return;
+  const pt = key.split('-'), amb = pt.slice(1, pt.length - 2).join('-') || 'Geral';
+  const div = document.createElement('div');
+  div.className = 'wall-item checked'; div.id = 'wi-' + key; div.dataset.livre = '1'; div.dataset.m2calc = '0';
+  div.innerHTML = `<div class="wall-check"><svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <div class="wall-info"><p>${amb} · Metragem informada</p>
+      <div class="mm-row"><label for="mm-${key}">m²</label><input id="mm-${key}" class="form-control" type="number" step="0.01" min="0" inputmode="decimal" value="${val.m2 || ''}" oninput="mudarM2Manual('${key}')"></div>
+      <div class="floor-select-row"><select class="form-control" id="fs-${key}" style="font-size:12px;padding:4px 8px;width:100%" onchange="atualizarResumo()"><option value="">— Piso —</option>${_opcoesRevHTML(val.piso)}</select>
+      <button onclick="removerM2Livre('${key}')" style="font-size:10px;color:var(--danger);background:none;border:none;cursor:pointer;padding:2px 0;text-align:left;width:100%">remover</button></div></div>`;
+  box.appendChild(div);
+}
+function adicionarM2Livre() {
+  const amb = (document.getElementById('ml-amb').value || '').trim().replace(/-/g, ' ') || 'Geral';
+  const m2 = parseFloat(String(document.getElementById('ml-m2').value).replace(',', '.')) || 0;
+  const piso = document.getElementById('ml-piso').value;
+  if (m2 <= 0) { showToast('Informe os m²', 'error'); return; }
+  const key = calcApAtual + '-' + amb + '-Metragem informada-L' + Date.now().toString(36);
+  calcSelecoes[key] = { m2, piso, manual: true, livre: true };
+  _inserirM2Livre(key, calcSelecoes[key]);
+  document.getElementById('ml-amb').value = ''; document.getElementById('ml-m2').value = ''; document.getElementById('ml-piso').value = '';
+  atualizarResumo();
+}
+function removerM2Livre(key) {
+  delete calcSelecoes[key]; document.getElementById('wi-' + key)?.remove(); atualizarResumo();
 }
 function atualizarResumo() {
   // atualiza piso selecionado nos itens marcados
@@ -13361,7 +13531,7 @@ function atualizarResumo() {
           ${rev ? ' · ' + rev.tamanho : ''}
           ${preco > 0 ? ' · R$ ' + preco.toFixed(2) + '/m²' : ''}
         </p>
-        <p style="font-size:10px;color:var(--text3)">${m2v.toFixed(2)} m² + ${perda*100}% perda</p>
+        <p style="font-size:10px;color:var(--text3)">${m2v.toFixed(2)} m²${v.manual ? ' (informado)' : ''} + ${perda*100}% perda</p>
       </div>
       <div style="text-align:right">
         <span class="badge badge-green">${m2comPerda.toFixed(2)} m²</span>
