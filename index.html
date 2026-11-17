@@ -12515,7 +12515,8 @@ function renderEstoqueCards(d) {
       '<div class="est-body"><div><div class="est-nome">' + esc(r.nome || '-') + '</div><div class="est-sub">' + esc([r.tamanho, r.obra].filter(Boolean).join(' · ')) + '</div></div>' +
       '<div class="est-nums"><div><small>Físico</small><b>' + (temCalc ? _fmtCx(c.fisicoCx) + ' cx' : '-') + '</b></div><div><small>Disponível</small><b' + (disp !== null && disp < -0.005 ? ' style="color:var(--danger)"' : '') + '>' + (temCalc ? _fmtCx(disp) + ' cx' : '-') + '</b></div>' +
       '<div><small>Reservado</small><b>' + (c.reservCx > 0.005 ? _fmtCx(c.reservCx) + ' cx' : '-') + '</b></div><div><small>Reserva téc.</small><b>' + (c.rtCx > 0 ? _fmtCx(c.rtCx) + ' cx' : '-') + '</b></div></div>' +
-      '<div class="est-tags">' + tag + (r.lote && !/^n\s*\/\s*i/i.test(r.lote) ? '<span class="badge badge-gray">Lote ' + esc(r.lote) + '</span>' : '') + '</div></div></div>';
+      '<div class="est-tags">' + tag + (r.lote && !/^n\s*\/\s*i/i.test(r.lote) ? '<span class="badge badge-gray">Lote ' + esc(r.lote) + '</span>' : '') + (c.ajuste ? '<span class="badge badge-gray" title="Contagem física de ' + esc(c.ajusteData || '') + '">Contado ' + _fmtCx(c.ajusteCx) + ' cx</span>' : '') + '</div>' +
+      (temCalc ? '<button class="btn btn-secondary" style="margin-top:10px;width:100%;justify-content:center" onclick="contarEstoque(\'' + String(r.id).replace(/'/g, "\\'") + '\')">✎ Contar estoque</button>' : '') + '</div></div>';
   }).join('');
 }
 function renderEstoque(d) {
