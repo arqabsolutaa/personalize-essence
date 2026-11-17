@@ -8324,7 +8324,7 @@ function _calcularNecessidadeCompra() {
   const lista = Object.values(porRevestimento).map(e => {
     // contagem física (Estoque → Contar) corrige a planilha: estoque = planilha + ajuste da última contagem
     const _aj = (typeof _estAjusteDe === 'function') ? _estAjusteDe(e.rev) : null;
-    const estoque = (parseFloat(e.rev.estoque_m2) || 0) + (_aj ? (parseFloat(_aj.ajuste_m2) || 0) : 0);
+    const estoque = _aj ? Math.max(0, _estCalc(e.rev).fisicoM2 - _estCalc(e.rev).corr) : (parseFloat(e.rev.estoque_m2) || 0);
     const key = String(e.rev.id || e.rev.codigo);
     const saidaM2 = saidaPorRevestimento[key] || 0;
     const reservadoM2 = _reservadoM2(e.rev); // reserva técnica: está no estoque mas não pode ser usada nas personalizações
@@ -12373,13 +12373,14 @@ function _estCalc(rev, semAjuste) {
     if (falta > 0.005) reservM2 += falta, reservAps.push({ ap, cx: m2cx > 0 ? falta / m2cx : 0 });
   });
   const aj = semAjuste ? null : _estAjusteDe(rev);
-  const fisicoM2 = _eN(rev.estoque_m2) + corr + (aj ? _eN(aj.ajuste_m2) : 0);
+  // com contagem física, o que foi contado manda (valor fixo); sem contagem, planilha + saídas ainda não subidas
+  const fisicoM2 = aj ? _eN(aj.caixas_contadas) * m2cx : _eN(rev.estoque_m2) + corr;
   const rtCx = _reservadoCaixas(rev);
   const fisicoCx = m2cx > 0 ? fisicoM2 / m2cx : 0;
   const reservCx = m2cx > 0 ? reservM2 / m2cx : 0;
   // a planilha trava em zero: se zerou e ainda há saídas confirmadas sem subir, o físico calculado pode estar errado até alguém contar
   const incerto = !aj && _eN(rev.estoque_m2) <= 0.0001 && corr > 0.005;
-  return { fisicoM2, fisicoCx, reservCx, reservAps, rtCx, incerto, dispCx: fisicoCx - reservCx - rtCx,
+  return { fisicoM2, corr, fisicoCx, reservCx, reservAps, rtCx, incerto, dispCx: fisicoCx - reservCx - rtCx,
     ajuste: !!aj, ajusteData: aj ? aj.criado_em : '', ajusteCx: aj ? _eN(aj.caixas_contadas) : 0 };
 }
 async function contarEstoque(revId) {
