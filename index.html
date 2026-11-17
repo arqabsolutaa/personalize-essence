@@ -3286,6 +3286,11 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
           <option value="">Todos os locais</option>
         </select>
         <input class="filter-input" type="date" id="filtro-saida-data" onchange="filtrarSaidas()">
+        <select class="filter-input" id="filtro-saida-tipo" onchange="filtrarSaidas()">
+          <option value="">Todas as movimentações</option>
+          <option value="alt">Só alterações (voltou / saiu novamente)</option>
+          <option value="volt">Só o que voltou ao estoque</option>
+        </select>
       </div>
       <div class="table-wrap">
         <table>
@@ -12711,18 +12716,38 @@ async function loadSaidas() {
     }
   }).catch(()=>{});
 }
+// tipo da saída: 'volt' = voltou ao estoque (estorno de alteração), 'novo' = saiu novamente (alteração), 'normal'
+function _saidaTipo(r) {
+  const q = parseFloat(r.quantidade_m2 || 0), obs = String(r.obs || '');
+  if (q < 0 || /estorno/i.test(obs)) return 'volt';
+  if (/altera[cç][aã]o\s*\d+/i.test(obs)) return 'novo';
+  return 'normal';
+}
+function _revDaSaida(r) {
+  const cod = String(r.codigo_rev || '').trim(), lista = (dadosRevestimentos && dadosRevestimentos.length) ? dadosRevestimentos : (dadosEstoque || []);
+  return lista.find(x => String(x.id) === cod) || lista.find(x => String(x.codigo) === cod) || lista.find(x => (x.nome || '').trim() === (r.revestimento || '').trim()) || null;
+}
 function renderSaidas(d) {
   if (!d.length) { document.getElementById('saidas-tbody').innerHTML = '<tr><td colspan="8"><div class="empty-state"><strong>Nenhuma saída registrada</strong></div></td></tr>'; return; }
-  document.getElementById('saidas-tbody').innerHTML = d.map(r => `<tr>
+  document.getElementById('saidas-tbody').innerHTML = d.map(r => {
+    const tp = _saidaTipo(r), q = parseFloat(r.quantidade_m2 || 0), rev = _revDaSaida(r);
+    const sub = rev ? [rev.tamanho, rev.codigo].filter(Boolean).join(' · ') : '';
+    const badge = tp === 'volt'
+      ? `<span class="badge badge-green" title="Voltou ao estoque (alteração)">↩ voltou ${Math.abs(q).toFixed(2)} m²</span>`
+      : tp === 'novo'
+        ? `<span class="badge badge-warn" title="Saiu de novo por causa de uma alteração">↗ saiu novamente ${q.toFixed(2)} m²</span>`
+        : `<span class="badge badge-warn">${q.toFixed(2)} m²</span>`;
+    const rowSt = tp === 'volt' ? ' style="background:#f3f8f5"' : (tp === 'novo' ? ' style="background:#fcf8ee"' : '');
+    return `<tr${rowSt}>
     <td><input type="checkbox" class="saida-cb" data-id="${r.id}" style="cursor:pointer"></td>
     <td>${formatarDataDisplay(r.data)||'-'}</td>
-    <td style="font-weight:500">${r.revestimento||'-'}</td>
+    <td style="font-weight:500">${r.revestimento||'-'}${sub ? `<div style="font-size:11px;font-weight:400;color:var(--text3)">${sub}</div>` : ''}</td>
     <td>${r.obra||'-'}</td>
-    <td>${r.local||'-'} ${r.apto ? '· Apto '+r.apto : ''}</td>
-    <td><span class="badge badge-warn">${parseFloat(r.quantidade_m2||0).toFixed(2)} m²</span></td>
+    <td>${r.local||'-'} ${r.apto ? '· Apto '+r.apto : ''}${tp !== 'normal' && r.obs ? `<div style="font-size:11px;color:var(--text3)">${String(r.obs).replace(/^Via Personalizar - /, '')}</div>` : ''}</td>
+    <td>${badge}</td>
     <td>${r.destino||'-'}</td>
     <td style="white-space:nowrap"><button class="btn btn-secondary" onclick="abrirDetalheSaida('${r.id}')" style="padding:4px 8px;font-size:11px;margin-right:4px">Detalhes</button><button class="btn btn-danger" onclick="excluirSaida('${r.id}')" style="padding:4px 8px;font-size:11px">Excluir</button></td>
-  </tr>`).join('');
+  </tr>`; }).join('');
 }
 
 // Mostra o detalhe de uma saída: converte os m² em caixas/peças usando o cadastro do revestimento
@@ -12783,10 +12808,12 @@ function filtrarSaidas() {
   const busca = document.getElementById('filtro-saida-busca').value.toLowerCase();
   const local = document.getElementById('filtro-saida-local').value;
   const data = document.getElementById('filtro-saida-data').value;
+  const tipo = (document.getElementById('filtro-saida-tipo') || {}).value || '';
   const f = dadosSaidas.filter(r =>
     (!busca || (r.revestimento||'').toLowerCase().includes(busca) || (r.obra||'').toLowerCase().includes(busca)) &&
     (!local || r.local === local) &&
-    (!data || r.data === data)
+    (!data || r.data === data) &&
+    (!tipo || (tipo === 'volt' ? _saidaTipo(r) === 'volt' : _saidaTipo(r) !== 'normal'))
   );
   renderSaidas(f);
 }
