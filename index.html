@@ -12383,6 +12383,7 @@ function _estCalc(rev, semAjuste) {
     ajuste: !!aj, ajusteData: aj ? aj.criado_em : '', ajusteCx: aj ? _eN(aj.caixas_contadas) : 0 };
 }
 async function contarEstoque(revId) {
+  try { await _carregarBaseEstoqueCalc(); } catch (e) {} // garante saídas/instalações carregadas antes de calcular o ajuste
   const rev = (dadosEstoque.length ? dadosEstoque : dadosRevestimentos).find(r => String(r.id) === String(revId));
   if (!rev) return;
   const m2cx = _eN(rev.m2_por_caixa); if (!m2cx) { showToast('Esse revestimento está sem m² por caixa', 'error'); return; }
