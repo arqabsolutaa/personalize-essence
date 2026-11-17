@@ -14142,8 +14142,21 @@ async function loadPersonalizar() {
 }
 function renderPersonalizar(d) {
   d = (d || []).filter(p => String(p.arquivado || '').toLowerCase() !== 'true'); // arquivadas não aparecem na lista ativa
-  if (!d.length) { document.getElementById('personalizar-lista').innerHTML = '<div class="empty-state"><strong>Nenhuma personalização salva</strong><p>Use o botão "Inserir seus dados" na tela inicial</p></div>'; return; }
-  const barra = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+  // filtro por revestimento: só os apartamentos que escolheram aquele revestimento (com alterações aplicadas)
+  const _selDe = p => { try { return _selecoesEfetivas(p); } catch (e) { try { return typeof p.selecoes === 'string' ? JSON.parse(p.selecoes) : (p.selecoes || {}); } catch (e2) { return {}; } } };
+  const _opts = {};
+  d.forEach(p => Object.values(_selDe(p)).forEach(v => { if (v && v.piso && (parseFloat(v.m2) || 0) > 0) { const r = _revPorPiso(v.piso); if (r) _opts[String(r.id)] = r; } }));
+  const _optsHtml = Object.values(_opts).sort((a, b) => String(a.nome).localeCompare(String(b.nome)) || String(a.tamanho).localeCompare(String(b.tamanho)))
+    .map(r => `<option value="${r.id}"${String(window._filtroRevPers) === String(r.id) ? ' selected' : ''}>${String(r.nome || '').trim()} ${r.tamanho || ''} · ${r.codigo || ''}</option>`).join('');
+  const _totalAntes = d.length;
+  if (window._filtroRevPers) {
+    const fr = _revPorPiso(window._filtroRevPers);
+    d = d.filter(p => Object.values(_selDe(p)).some(v => v && (parseFloat(v.m2) || 0) > 0 && fr && (String(v.piso) === String(fr.id) || String(v.piso) === String(fr.codigo))));
+  }
+  if (!_totalAntes) { document.getElementById('personalizar-lista').innerHTML = '<div class="empty-state"><strong>Nenhuma personalização salva</strong><p>Use o botão "Inserir seus dados" na tela inicial</p></div>'; return; }
+  const barra = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+    <select class="filter-input" onchange="window._filtroRevPers=this.value;renderPersonalizar(dadosPersonalizar)" style="min-width:260px;max-width:100%"><option value="">Todos os revestimentos</option>${_optsHtml}</select>
+    ${window._filtroRevPers ? `<span style="font-size:12px;color:var(--text2)"><strong>${d.length}</strong> apartamento(s) escolheram</span><button class="btn btn-secondary" onclick="window._filtroRevPers='';renderPersonalizar(dadosPersonalizar)" style="font-size:12px;padding:6px 10px">Limpar filtro</button>` : ''}
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
       <input type="checkbox" id="select-all-pers" onchange="toggleAllPersonalizar(this)" style="cursor:pointer">
       Selecionar todas
