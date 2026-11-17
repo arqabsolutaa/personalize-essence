@@ -3361,6 +3361,16 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-quem-escolheu">
+    <div class="modal" style="max-width:720px">
+      <div class="modal-header">
+        <h2 id="quem-titulo">Quem escolheu</h2>
+        <button class="modal-close" onclick="fecharModal('modal-quem-escolheu')">&times;</button>
+      </div>
+      <div class="modal-body" id="quem-corpo"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-historico">
     <div class="modal" style="max-width:980px;width:96%">
       <div class="modal-header">
@@ -12522,8 +12532,42 @@ function renderEstoqueCards(d) {
       '<div class="est-nums"><div><small>Físico</small><b>' + (temCalc ? _fmtCx(c.fisicoCx) + ' cx' : '-') + '</b></div><div><small>Disponível</small><b' + (disp !== null && disp < -0.005 ? ' style="color:var(--danger)"' : '') + '>' + (temCalc ? _fmtCx(disp) + ' cx' : '-') + '</b></div>' +
       '<div><small>Reservado</small><b>' + (c.reservCx > 0.005 ? _fmtCx(c.reservCx) + ' cx' : '-') + '</b></div><div><small>Reserva téc.</small><b>' + (c.rtCx > 0 ? _fmtCx(c.rtCx) + ' cx' : '-') + '</b></div></div>' +
       '<div class="est-tags">' + tag + (r.lote && !/^n\s*\/\s*i/i.test(r.lote) ? '<span class="badge badge-gray">Lote ' + esc(r.lote) + '</span>' : '') + (c.ajuste ? '<span class="badge badge-gray" title="Contagem física de ' + esc(c.ajusteData || '') + '">Contado ' + _fmtCx(c.ajusteCx) + ' cx</span>' : '') + '</div>' +
-      (temCalc ? '<button class="btn btn-secondary" style="margin-top:10px;width:100%;justify-content:center" onclick="contarEstoque(\'' + String(r.id).replace(/'/g, "\\'") + '\')">✎ Contar estoque</button>' : '') + '</div></div>';
+      '<div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="quemEscolheu(\'' + String(r.id).replace(/'/g, "\\'") + '\')">👥 Quem escolheu</button>' + (temCalc ? '<button class="btn btn-secondary" style="flex:1;justify-content:center" onclick="contarEstoque(\'' + String(r.id).replace(/'/g, "\\'") + '\')">✎ Contar</button>' : '') + '</div>' + '</div></div>';
   }).join('');
+}
+// Quem escolheu este revestimento: orçamentos ativos (não arquivados), já com as alterações aplicadas
+async function quemEscolheu(revId) {
+  const rev = (dadosEstoque.length ? dadosEstoque : dadosRevestimentos).find(r => String(r.id) === String(revId));
+  if (!rev) return;
+  try { if (typeof _carregarAlteracoes === 'function') await _carregarAlteracoes(null, false); } catch (e) {}
+  const casa = piso => String(piso) === String(rev.id) || (rev.codigo && String(piso) === String(rev.codigo));
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const linhas = [];
+  (dadosPersonalizar || []).forEach(p => {
+    if (String(p.arquivado || '').toLowerCase() === 'true') return;
+    let sel = {}; try { sel = _selecoesEfetivas(p); } catch (e) { try { sel = typeof p.selecoes === 'string' ? JSON.parse(p.selecoes) : (p.selecoes || {}); } catch (e2) {} }
+    const amb = {}; let tot = 0;
+    Object.entries(sel).forEach(([k, v]) => {
+      if (!v || !casa(v.piso)) return;
+      const m2 = parseFloat(v.m2) || 0; if (m2 <= 0) return;
+      const nome = (k.split('-')[1] || 'Ambiente').trim();
+      amb[nome] = (amb[nome] || 0) + m2; tot += m2;
+    });
+    if (tot > 0) linhas.push({ ap: String(p.ap || ''), cliente: p.cliente || '', conf: String(p.status) === 'confirmado', amb, tot });
+  });
+  linhas.sort((a, b) => (parseFloat(a.ap) || 0) - (parseFloat(b.ap) || 0) || a.ap.localeCompare(b.ap));
+  const f2 = v => v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  document.getElementById('quem-titulo').textContent = 'Quem escolheu · ' + (rev.nome || '') + (rev.tamanho ? ' ' + rev.tamanho : '');
+  const totalGeral = linhas.reduce((a, l) => a + l.tot, 0);
+  document.getElementById('quem-corpo').innerHTML = !linhas.length
+    ? '<div class="empty-state"><strong>Ninguém escolheu esse revestimento</strong><p>Considerando só orçamentos ativos (não arquivados).</p></div>'
+    : `<p style="font-size:13px;color:var(--text2);margin:0 0 12px"><strong>${linhas.length}</strong> apartamento(s) · <strong>${f2(totalGeral)} m²</strong> no total (sem perda) · código ${esc(rev.codigo || '—')}</p>
+       <div class="table-wrap"><table><thead><tr><th>Apto</th><th>Cliente</th><th>Ambientes</th><th>m²</th><th>Situação</th></tr></thead><tbody>${linhas.map(l => `<tr>
+         <td style="font-weight:600">${esc(l.ap)}</td><td>${esc(l.cliente)}</td>
+         <td style="font-size:12px;color:var(--text2)">${Object.entries(l.amb).map(([n, m]) => esc(n) + ' (' + f2(m) + ')').join('<br>')}</td>
+         <td style="font-weight:500">${f2(l.tot)}</td>
+         <td>${l.conf ? '<span class="badge badge-green">Saída feita</span>' : '<span class="badge badge-warn">Aguardando</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+  abrirModal('modal-quem-escolheu');
 }
 function renderEstoque(d) {
   renderEstoqueCards(d);
@@ -12542,7 +12586,7 @@ function renderEstoque(d) {
       <td style="font-weight:500">${r.nome||'-'}</td>
       <td>${r.obra||'-'}</td>
       <td>${r.m2_por_caixa||'-'}</td>
-      <td style="font-weight:600"${tipAj}>${temCalc ? (c.fisicoCx !== 0 ? _fmtCx(c.fisicoCx) + ' cx' : '-') : '-'}${c.incerto ? ' <span title="A planilha chegou a zero para este revestimento, então este número pode estar errado. Clique em ✎ e informe a contagem real." style="color:var(--warn);cursor:help">⚠</span>' : ''}${temCalc ? ` <button class="btn btn-secondary" onclick="contarEstoque('${String(r.id).replace(/'/g,"\\'")}')" title="Contar / corrigir o estoque físico" style="padding:1px 6px;font-size:10px;margin-left:4px">✎</button>` : ''}</td>
+      <td style="font-weight:600"${tipAj}>${temCalc ? (c.fisicoCx !== 0 ? _fmtCx(c.fisicoCx) + ' cx' : '-') : '-'}${c.incerto ? ' <span title="A planilha chegou a zero para este revestimento, então este número pode estar errado. Clique em ✎ e informe a contagem real." style="color:var(--warn);cursor:help">⚠</span>' : ''}${temCalc ? ` <button class="btn btn-secondary" onclick="contarEstoque('${String(r.id).replace(/'/g,"\\'")}')" title="Contar / corrigir o estoque físico" style="padding:1px 6px;font-size:10px;margin-left:4px">✎</button>` : ''} <button class="btn btn-secondary" onclick="quemEscolheu('${String(r.id).replace(/'/g,"\\'")}')" title="Quem escolheu este revestimento" style="padding:1px 6px;font-size:10px;margin-left:2px">👥</button></td>
       <td>${c.reservCx > 0.005 ? `<span class="badge badge-warn" title="Confirmados e ainda não subiram: ${c.reservAps.map(x => 'Apto ' + x.ap + ' (' + _fmtCx(x.cx) + ' cx)').join(', ')}">${_fmtCx(c.reservCx)} cx</span><div style="font-size:11px;color:var(--text2);margin-top:4px;line-height:1.45">${c.reservAps.slice().sort((a, b) => b.cx - a.cx).filter(x => x.cx >= 0.05).map(x => 'Apto ' + x.ap + ' · ' + _fmtCx(x.cx) + ' cx').join('<br>')}</div>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td>${c.rtCx > 0 ? `<span class="badge badge-warn" title="Reserva técnica para: ${_reservasDoRev(r).map(x => 'Apto ' + x.ap + ' (' + _fmtCx(parseFloat(x.qtd_caixas)||0) + ' cx)').join(', ')}">${_fmtCx(c.rtCx)} cx</span>` : '<span style="color:var(--text3)">—</span>'}</td>
       <td style="font-weight:600;${c.dispCx < -0.005 ? 'color:var(--danger)' : ''}">${temCalc && (c.fisicoCx !== 0 || c.reservCx > 0.005 || c.rtCx > 0) ? _fmtCx(c.dispCx) + ' cx' + (c.dispCx < -0.005 ? ' <span style="font-size:10px;font-weight:500">(comprar)</span>' : '') : '-'}</td>
