@@ -8322,7 +8322,9 @@ function _calcularNecessidadeCompra() {
   const saidaPorRevestimento = {}; // não soma mais as saídas de volta: quem já retirou saiu da necessidade
 
   const lista = Object.values(porRevestimento).map(e => {
-    const estoque = parseFloat(e.rev.estoque_m2) || 0;
+    // contagem física (Estoque → Contar) corrige a planilha: estoque = planilha + ajuste da última contagem
+    const _aj = (typeof _estAjusteDe === 'function') ? _estAjusteDe(e.rev) : null;
+    const estoque = (parseFloat(e.rev.estoque_m2) || 0) + (_aj ? (parseFloat(_aj.ajuste_m2) || 0) : 0);
     const key = String(e.rev.id || e.rev.codigo);
     const saidaM2 = saidaPorRevestimento[key] || 0;
     const reservadoM2 = _reservadoM2(e.rev); // reserva técnica: está no estoque mas não pode ser usada nas personalizações
