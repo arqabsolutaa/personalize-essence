@@ -14070,6 +14070,7 @@ async function loadPersonalizar() {
   }).catch(()=>{});
 }
 function renderPersonalizar(d) {
+  d = (d || []).filter(p => String(p.arquivado || '').toLowerCase() !== 'true'); // arquivadas não aparecem na lista ativa
   if (!d.length) { document.getElementById('personalizar-lista').innerHTML = '<div class="empty-state"><strong>Nenhuma personalização salva</strong><p>Use o botão "Inserir seus dados" na tela inicial</p></div>'; return; }
   const barra = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
     <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer">
