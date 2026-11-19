@@ -8281,7 +8281,89 @@ function _calcularTotalDeSelecoesObj(selecoesRaw) {
 // Pra cada revestimento: quanto já tá vendido/personalizado nos apês (com a margem de perda de
 // cada item) menos o que já tem em estoque. Só usa a última revisão não-arquivada de cada módulo
 // de cada apê (mesma lógica da previsão de pagamento), pra não contar seleção de revisão velha.
+// ===== COMPRAS (regra nova, igual ao que acontece na obra) =====
+//   falta subir = lista de materiais de cada apto (sem perda, a não ser que você defina) − o que já subiu (Instalações)
+//   estoque     = estoque físico real (entradas − o que subiu − quebras/saídas registradas) − reserva técnica
+//   comprar     = falta subir − estoque
+function _perdaCompras() { try { const v = parseFloat(localStorage.getItem('compras_perda')); return isNaN(v) ? 0 : Math.max(0, v); } catch (e) { return 0; } }
+function _setPerdaCompras(v) { try { localStorage.setItem('compras_perda', String(parseFloat(String(v).replace(',', '.')) || 0)); } catch (e) {} renderNecessidadeCompra(); }
 function _calcularNecessidadeCompra() {
+  const perda = _perdaCompras() / 100;
+  const revPor = c => { c = String(c || '').trim(); return (dadosRevestimentos || []).find(r => String(r.id) === c || String(r.codigo) === c); };
+  const maisRecente = {};
+  (dadosPersonalizar || []).forEach(p => {
+    if (String(p.arquivado).toLowerCase() === 'true') return;
+    const ap = String(p.ap || '').trim(); if (!ap) return;
+    const chave = ap + '|' + _chaveModuloPersonalizacao(p.cliente);
+    const dt = _dataOrdenavelPersonalizacao(p);
+    if (!maisRecente[chave] || dt > maisRecente[chave]._dt) maisRecente[chave] = { ...p, _dt: dt };
+  });
+  // o que já subiu para cada apartamento (Instalações), em m²
+  const subiu = {};
+  (dadosInstalacoes || []).forEach(i => {
+    const rev = revPor(i.codigo_rev); if (!rev) return;
+    const k = String(i.ap || '').trim() + '|' + String(rev.id || rev.codigo);
+    subiu[k] = (subiu[k] || 0) + (parseFloat(i.qtd_caixas_usadas) || 0) * (parseFloat(rev.m2_por_caixa) || 0);
+  });
+  // lista de materiais por apto + revestimento (com as alterações já aplicadas)
+  const grupos = {};
+  Object.values(maisRecente).forEach(p => {
+    let sel;
+    try { sel = _selecoesEfetivas(p); } catch (e) { try { sel = typeof p.selecoes === 'string' ? JSON.parse(p.selecoes || '{}') : (p.selecoes || {}); } catch (e2) { return; } }
+    const ap = String(p.ap || '').trim();
+    const conf = String(p.status) === 'confirmado';
+    const clienteBase = (p.cliente || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+    Object.entries(sel).forEach(([chaveSel, v]) => {
+      if (!v || !v.piso) return;
+      const rev = revPor(v.piso); if (!rev) return;
+      const m2 = parseFloat(v.m2) || 0; if (m2 <= 0) return;
+      const key = String(rev.id || rev.codigo);
+      const g = grupos[ap + '|' + key] = grupos[ap + '|' + key] || { rev, ap, key, total: 0, itens: [] };
+      const partes = chaveSel.split('-');
+      g.total += m2 * (1 + perda);
+      g.itens.push({ ap, cliente: clienteBase, ambiente: partes.length >= 2 ? partes[1] : chaveSel, m2, m2comPerda: m2 * (1 + perda), conf });
+    });
+  });
+  const porRev = {};
+  Object.values(grupos).forEach(g => {
+    const falta = g.total - (subiu[g.ap + '|' + g.key] || 0); // o que ainda não subiu
+    if (falta <= 0.01 || g.total <= 0) return;
+    const f = falta / g.total;
+    const e = porRev[g.key] = porRev[g.key] || { rev: g.rev, necessarioM2: 0, necConfM2: 0, itens: [] };
+    g.itens.forEach(it => { const m = it.m2comPerda * f; e.necessarioM2 += m; if (it.conf) e.necConfM2 += m; e.itens.push({ ...it, m2comPerda: m }); });
+  });
+  const lista = Object.values(porRev).map(e => {
+    const c = _estCalc(e.rev);
+    const m2cx = parseFloat(e.rev.m2_por_caixa) || 0;
+    const reservaTec = _reservadoM2(e.rev);
+    const disponivel = c.fisicoM2 - reservaTec;
+    const saldo = e.necessarioM2 - disponivel, saldoConf = e.necConfM2 - disponivel;
+    const margem = Math.max(2 * m2cx, 0.1 * e.necessarioM2);
+    const situacao = saldoConf > 0.01 ? 'acabou' : (saldo > 0.01 || -saldo <= margem ? 'vai' : 'ok');
+    return { rev: e.rev, necessarioM2: e.necessarioM2, necConfM2: e.necConfM2, estoqueM2: disponivel, fisicoM2: c.fisicoM2, reservadoM2: reservaTec, saidaM2: 0,
+      saldoM2: saldo, saldoConfM2: saldoConf, situacao, incerto: c.incerto, caixasFaltam: saldo > 0.01 && m2cx > 0 ? Math.ceil(saldo / m2cx - 1e-9) : 0,
+      itens: e.itens.sort((a, b) => (parseInt(a.ap) || 0) - (parseInt(b.ap) || 0) || String(a.ambiente).localeCompare(String(b.ambiente), 'pt-BR')) };
+  });
+  // reserva técnica sem personalização ativa: entra se o estoque real não cobre
+  const jaNaLista = new Set(lista.map(x => String(x.rev.id || x.rev.codigo)));
+  const resSem = {};
+  (dadosReservas || []).forEach(x => {
+    const rev = revPor(x.codigo_rev); if (!rev || jaNaLista.has(String(rev.id || rev.codigo))) return;
+    (resSem[String(rev.id || rev.codigo)] = resSem[String(rev.id || rev.codigo)] || { rev, itens: [] }).itens.push(x);
+  });
+  Object.values(resSem).forEach(e => {
+    const c = _estCalc(e.rev), m2cx = parseFloat(e.rev.m2_por_caixa) || 0, reserv = _reservadoM2(e.rev), saldo = reserv - c.fisicoM2;
+    if (saldo <= 0.01) return;
+    lista.push({ rev: e.rev, necessarioM2: 0, necConfM2: 0, estoqueM2: c.fisicoM2, fisicoM2: c.fisicoM2, reservadoM2: reserv, saidaM2: 0, saldoM2: saldo, saldoConfM2: saldo, situacao: 'acabou', incerto: c.incerto,
+      caixasFaltam: m2cx > 0 ? Math.ceil(saldo / m2cx - 1e-9) : 0,
+      itens: e.itens.map(x => ({ ap: String(x.ap), cliente: 'Reserva técnica', ambiente: 'Reserva técnica', m2: (parseFloat(x.qtd_caixas) || 0) * m2cx, m2comPerda: (parseFloat(x.qtd_caixas) || 0) * m2cx })) });
+  });
+  const ordem = { acabou: 0, vai: 1, ok: 2 };
+  lista.sort((a, b) => ordem[a.situacao] - ordem[b.situacao] || b.saldoM2 - a.saldoM2);
+  return lista;
+}
+
+function _calcularNecessidadeCompraAntigo() {
   const maisRecente = {};
   (dadosPersonalizar || []).forEach(p => {
     if (String(p.arquivado).toLowerCase() === 'true') return;
@@ -12086,37 +12168,45 @@ function _aptosDoItem(x) {
   return [...new Set((x.itens||[]).map(it => String(it.ap)))].sort((a,b) => (parseInt(a)||0) - (parseInt(b)||0));
 }
 
+let _compraMostrarOk = false;
 function renderNecessidadeCompra() {
   const cont = document.getElementById('necessidadecompra-lista');
   const statsEl = document.getElementById('necessidadecompra-stats');
-  const listaCompleta = _calcularNecessidadeCompra();
-  _necessidadeCompraLista = listaCompleta;
-  const faltando = listaCompleta.filter(x => x.saldoM2 > 0.01);
-
-  const totalM2Faltam = faltando.reduce((s,x) => s + x.saldoM2, 0);
+  const lista = _calcularNecessidadeCompra();
+  _necessidadeCompraLista = lista;
+  const acabou = lista.filter(x => x.situacao === 'acabou'), vai = lista.filter(x => x.situacao === 'vai');
+  const cxDe = x => { const m = parseFloat(x.rev.m2_por_caixa) || 0; return m > 0 ? (m2 => m2 / m) : (m2 => m2); };
+  const fx = (x, m2) => { const m = parseFloat(x.rev.m2_por_caixa) || 0; return m > 0 ? _fmtCx(m2 / m) + ' cx' : (Math.round(m2 * 100) / 100) + ' m²'; };
+  const totalComprarCx = acabou.reduce((a, x) => a + x.caixasFaltam, 0);
   statsEl.innerHTML = `
-    <div class="stat-card"><div class="stat-label">Revestimentos em Falta</div><div class="stat-value">${faltando.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Total Faltando</div><div class="stat-value">${totalM2Faltam.toFixed(1)} m²</div></div>
+    <div class="stat-card"><div class="stat-label">Acabou · comprar</div><div class="stat-value" style="color:${acabou.length ? 'var(--danger)' : 'inherit'}">${acabou.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Vai acabar</div><div class="stat-value">${vai.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Caixas a comprar</div><div class="stat-value">${totalComprarCx}</div></div>
     <div class="stat-card"><div class="stat-label">Compras lançadas (a comprar)</div><div class="stat-value">${_comprasManuaisPend().reduce((a, c) => a + _cmM2(c), 0).toFixed(1)} m²</div></div>
   `;
-
   renderComprasManuais();
-  if (!faltando.length) {
-    cont.innerHTML = '<div class="empty-state"><strong>Nada faltando pelo cálculo 🎉</strong><p>O estoque atual cobre tudo que já foi personalizado nos apês ativos (com a margem de perda incluída)</p></div>';
+  const mostrar = lista.filter(x => _compraMostrarOk || x.situacao !== 'ok');
+  const barra = `<div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:var(--text2)">
+    <label style="display:flex;align-items:center;gap:6px">Perda considerada no cálculo: <input type="number" min="0" step="1" value="${_perdaCompras()}" onchange="_setPerdaCompras(this.value)" class="filter-input" style="width:64px;padding:4px 8px"> %</label>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${_compraMostrarOk ? 'checked' : ''} onchange="_compraMostrarOk=this.checked;renderNecessidadeCompra()"> Mostrar também os que estão OK</label>
+    <span style="color:var(--text3)">Falta subir = lista de materiais − o que já subiu · Estoque = físico real − reserva técnica</span></div>`;
+  if (!mostrar.length) {
+    cont.innerHTML = barra + '<div class="empty-state"><strong>Nada acabando 🎉</strong><p>O estoque cobre tudo que ainda falta subir nos apartamentos ativos.</p></div>';
     return;
   }
-
-  const fmt2 = v => v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
-  cont.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>Revestimento</th><th>Medida</th><th>Aptos</th><th>Estoque Atual</th><th>Necessário</th><th>Faltam (m²)</th><th></th></tr></thead>
-    <tbody>${faltando.map((x,i) => `<tr>
-      <td style="font-weight:500">${x.rev.nome||'-'}</td>
-      <td>${x.rev.tamanho||'—'}</td>
+  const chip = x => x.situacao === 'acabou' ? `<span class="badge badge-danger">Acabou · comprar ${x.caixasFaltam} cx</span>`
+    : x.situacao === 'vai' ? `<span class="badge badge-warn">Vai acabar${x.saldoM2 > 0.01 ? ' · faltam ' + fx(x, x.saldoM2) + ' se fecharem os pendentes' : ' · sobram ' + fx(x, -x.saldoM2)}</span>`
+    : `<span class="badge badge-green">OK · sobram ${fx(x, -x.saldoM2)}</span>`;
+  cont.innerHTML = barra + `<div class="table-wrap"><table>
+    <thead><tr><th>Revestimento</th><th>Medida</th><th>Em estoque</th><th>Falta subir</th><th>Situação</th><th>Aptos</th><th></th></tr></thead>
+    <tbody>${mostrar.map(x => `<tr>
+      <td style="font-weight:500">${x.rev.nome || '-'}${x.incerto ? ' <span title="A planilha zerou este revestimento: confira com uma contagem física (✎ no Estoque)" style="color:var(--warn);cursor:help">⚠</span>' : ''}</td>
+      <td>${x.rev.tamanho || '—'}</td>
+      <td>${fx(x, Math.max(0, x.estoqueM2))}${x.reservadoM2 > 0.005 ? `<div style="font-size:10px;color:var(--warn)">− ${fx(x, x.reservadoM2)} de reserva técnica</div>` : ''}</td>
+      <td>${fx(x, x.necessarioM2)}${x.necConfM2 < x.necessarioM2 - 0.01 ? `<div style="font-size:10px;color:var(--text3)">${fx(x, x.necConfM2)} confirmados</div>` : ''}</td>
+      <td>${chip(x)}</td>
       <td>${_aptosDoItem(x).map(a => `<span class="badge badge-info" style="margin-right:3px">${a}</span>`).join('')}</td>
-      <td>${fmt2(x.estoqueM2)} m²${x.reservadoM2 > 0.005 ? `<div style="font-size:10px;color:var(--warn)">− ${fmt2(x.reservadoM2)} m² de reserva técnica</div>` : ''}</td>
-      <td>${fmt2(x.necessarioM2)} m²</td>
-      <td><span class="badge badge-danger">${fmt2(x.saldoM2)} m²</span></td>
-      <td><button class="btn btn-secondary" style="font-size:11px;padding:5px 10px" onclick="abrirDetalheNecessidadeCompra(${i})">Aptos</button></td>
+      <td><button class="btn btn-secondary" style="font-size:11px;padding:5px 10px" onclick="abrirDetalheNecessidadeCompra('${String(x.rev.id || x.rev.codigo).replace(/'/g, "\\'")}')">Aptos</button></td>
     </tr>`).join('')}</tbody>
   </table></div>`;
 }
@@ -12199,16 +12289,15 @@ async function excluirCompraManual(id) {
   catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-function abrirDetalheNecessidadeCompra(idx) {
-  const faltando = _necessidadeCompraLista.filter(x => x.saldoM2 > 0.01);
-  const x = faltando[idx];
+function abrirDetalheNecessidadeCompra(chave) {
+  const x = _necessidadeCompraLista.find(y => String(y.rev.id || y.rev.codigo) === String(chave));
   if (!x) return;
   const fmt2 = v => v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
   document.getElementById('necessidadecompra-detalhe-titulo').textContent = x.rev.nome + (x.rev.tamanho ? ' · ' + x.rev.tamanho : '');
   document.getElementById('necessidadecompra-detalhe-corpo').innerHTML = `
-    <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Estoque atual: <strong>${fmt2(x.estoqueM2)} m²</strong>${x.reservadoM2 > 0.005 ? ' (reserva técnica: <strong>' + fmt2(x.reservadoM2) + ' m²</strong>, não conta como disponível)' : ''} · Necessário: <strong>${fmt2(x.necessarioM2)} m²</strong> · Faltam: <strong style="color:var(--danger)">${fmt2(x.saldoM2)} m²</strong></p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Estoque real disponível: <strong>${fmt2(Math.max(0, x.estoqueM2))} m²</strong>${x.reservadoM2 > 0.005 ? ' (já descontada a reserva técnica de <strong>' + fmt2(x.reservadoM2) + ' m²</strong>)' : ''} · Falta subir: <strong>${fmt2(x.necessarioM2)} m²</strong> · ${x.saldoM2 > 0.01 ? 'Faltam: <strong style="color:var(--danger)">' + fmt2(x.saldoM2) + ' m²</strong>' : 'Sobram: <strong>' + fmt2(-x.saldoM2) + ' m²</strong>'}</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>Apto</th><th>Cliente</th><th>Ambiente</th><th style="text-align:right">m² (com perda)</th></tr></thead>
+      <thead><tr><th>Apto</th><th>Cliente</th><th>Ambiente</th><th style="text-align:right">Falta subir (m²)</th></tr></thead>
       <tbody>${x.itens.map(it => `<tr>
         <td><span class="badge badge-info">Apto ${it.ap}</span></td>
         <td>${it.cliente||'—'}</td>
@@ -12352,10 +12441,11 @@ function _estMapas() {
   const porRev = {};
   const par = (rev, ap) => { const k = String(rev.id); porRev[k] = porRev[k] || {}; return porRev[k][ap] = porRev[k][ap] || { sold: 0, raised: 0 }; };
   (dadosSaidas || []).forEach(sa => {
-    if (!/via personalizar/i.test(sa.obs || '')) return;
     const rev = idx.get(String(sa.codigo_rev || '').trim()); if (!rev) return;
     const ap = _estApSaida(sa.apto); if (!ap) return;
-    par(rev, ap).sold += _eN(sa.quantidade_m2);
+    const pr = par(rev, ap);
+    if (!/vista|reserva|belize/i.test(String(sa.apto || '') + ' ' + String(sa.obra || ''))) pr.any = true; // saída do Essence (qualquer tipo) desse apto para esse revestimento
+    if (/via personalizar/i.test(sa.obs || '')) pr.sold += _eN(sa.quantidade_m2);
   });
   (dadosInstalacoes || []).forEach(i => {
     const rev = idx.get(String(i.codigo_rev || '').trim()); if (!rev) return;
@@ -12382,7 +12472,11 @@ function _estCalc(rev, semAjuste) {
   const pares = _estMapasCached()[String(rev.id)] || {};
   let corr = 0, reservM2 = 0; const reservAps = [];
   Object.entries(pares).forEach(([ap, v]) => {
-    if (v.sold <= 0) return; // só instalação sem saída do Personalizar: a planilha já conta de outro jeito
+    if (v.sold <= 0) {
+      // subiu para o apartamento sem nenhuma saída registrada: a planilha ainda não descontou, mas o material já saiu do depósito
+      if (!v.any && v.raised > 0) corr -= v.raised;
+      return;
+    }
     corr += v.sold - v.raised;
     const falta = Math.max(0, v.sold / (1 + perda) - v.raised);
     if (falta > 0.005) reservM2 += falta, reservAps.push({ ap, cx: m2cx > 0 ? falta / m2cx : 0 });
