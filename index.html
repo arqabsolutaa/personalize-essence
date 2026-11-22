@@ -14234,8 +14234,18 @@ async function loadPersonalizar() {
     }
   }).catch(()=>{});
 }
+// "Saída realizada" só vale se existir saída de verdade para o apartamento (apagou as saídas → volta a poder confirmar)
+function _persTemSaidaReal(p) {
+  if (window._persSaidasOk !== true) return true; // enquanto as saídas não carregaram, confia no status
+  const ap = String(p.ap || '').trim();
+  return (dadosSaidas || []).some(sa => /via personalizar/i.test(sa.obs || '') && _estApSaida(sa.apto) === ap && !/vista|reserva|belize/i.test(String(sa.apto || '') + ' ' + String(sa.obra || '')));
+}
 function renderPersonalizar(d) {
   d = (d || []).filter(p => String(p.arquivado || '').toLowerCase() !== 'true'); // arquivadas não aparecem na lista ativa
+  if (!window._persSaidasOk) {
+    window._persSaidasOk = 'carregando';
+    lerDados(true).then(x => { if (x && x.saidas) dadosSaidas = x.saidas; window._persSaidasOk = true; renderPersonalizar(dadosPersonalizar); }).catch(() => { window._persSaidasOk = 'erro'; });
+  }
   // filtro por revestimento: só os apartamentos que escolheram aquele revestimento (com alterações aplicadas)
   const _selDe = p => { try { return _selecoesEfetivas(p); } catch (e) { try { return typeof p.selecoes === 'string' ? JSON.parse(p.selecoes) : (p.selecoes || {}); } catch (e2) { return {}; } } };
   const _opts = {};
@@ -14280,7 +14290,7 @@ function renderPersonalizar(d) {
           <button class="status-pgto-badge ${(p.status_pgto||'pendente') === 'pendente' ? 'status-pendente' : ''}" onclick="alterarStatusPgto('${p.id}','pendente')" style="${(p.status_pgto||'pendente') === 'pendente' ? '' : 'opacity:0.4'}">Pendente</button>
           <button class="status-pgto-badge status-parcial" onclick="alterarStatusPgto('${p.id}','parcial')" style="${p.status_pgto === 'parcial' ? '' : 'opacity:0.4'}">Parcial</button>
           <button class="status-pgto-badge status-pago" onclick="abrirModalConfirmarPagamento('${p.id}', ${parseFloat(p.total_valor)||0})" style="${p.status_pgto === 'pago' ? '' : 'opacity:0.4'}">Pago</button>
-          ${p.status === 'confirmado' 
+          ${p.status === 'confirmado' && _persTemSaidaReal(p)
             ? `<span style="font-size:11px;font-weight:600;padding:5px 10px;border-radius:20px;background:#e8f5e9;color:#2a4e35">✓ Saída Realizada</span>`
             : p.status_pgto === 'pago' 
               ? `<button class="btn btn-primary" onclick="confirmarSaidaPersonalizar('${p.id}')" style="font-size:12px;padding:6px 12px">Confirmar Saída</button>` 
