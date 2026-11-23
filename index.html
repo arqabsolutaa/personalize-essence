@@ -3211,13 +3211,13 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
     <div class="page-header">
       <div class="page-header-left">
         <h1>Compras</h1>
-        <p>Revestimentos que faltam pra cobrir os apês que ainda NÃO retiraram o material (já com a margem de perda). Apê que já teve saída não entra na conta</p>
+        <p>O sistema avisa o que acabou ou vai acabar. O seu pedido de compra fica embaixo, e é só ele que sai no PDF</p>
       </div>
       <div class="header-actions">
         <button class="btn btn-primary" onclick="abrirCompraManual()" style="margin-right:4px">+ Nova compra</button>
         <button class="btn btn-secondary" onclick="gerarPDFNecessidadeCompra()" id="btn-pdf-necessidadecompra" style="margin-right:4px">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          Gerar PDF
+          PDF do pedido
         </button>
         <button class="btn btn-secondary" onclick="loadNecessidadeCompra()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
@@ -12310,9 +12310,14 @@ function abrirDetalheNecessidadeCompra(chave) {
 }
 
 async function gerarPDFNecessidadeCompra() {
-  const manuaisPdf = _comprasManuaisPend().map(c => ({ manual: true, obs: c.obs || '', saldoM2: _cmM2(c), rev: (dadosRevestimentos || []).find(r => String(r.codigo) === String(c.codigo_rev) || String(r.id) === String(c.codigo_rev)) || { nome: c.revestimento, tamanho: '' } }));
-  const faltando = (_necessidadeCompraLista.length ? _necessidadeCompraLista : _calcularNecessidadeCompra()).filter(x => x.saldoM2 > 0.01).concat(manuaisPdf);
-  if (!faltando.length) { showToast('Nada faltando pra gerar relatório', 'error'); return; }
+  // PDF só do pedido de compra lançado por você (os avisos do sistema não entram)
+  const itens = _comprasManuaisPend().map(c => {
+    const rev = (dadosRevestimentos || []).find(r => String(r.codigo) === String(c.codigo_rev) || String(r.id) === String(c.codigo_rev)) || { nome: c.revestimento || c.codigo_rev, tamanho: '' };
+    const m2 = _cmM2(c), m2cx = parseFloat(rev.m2_por_caixa) || 0;
+    const cx = parseFloat(c.qtd_caixas) > 0 ? parseFloat(c.qtd_caixas) : (m2cx > 0 ? m2 / m2cx : 0);
+    return { rev, m2, cx, obs: c.obs || '', codigo: rev.codigo || c.codigo_rev || '' };
+  });
+  if (!itens.length) { showToast('Nenhuma compra lançada para gerar o PDF', 'error'); return; }
   showToast('Gerando PDF...', 'success');
   try {
     const CORES = ESSENCE_PALETAS.vinilico;
@@ -12323,39 +12328,36 @@ async function gerarPDFNecessidadeCompra() {
     const doc = new JsPDFClass();
     _pdfCapa(doc, imgData, '');
 
-    const W = 210, ml = 8, mr = 8;
+    const ml = 8;
     const fmt2 = v => v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const fmtN = v => (Math.round(v * 100) / 100).toLocaleString('pt-BR', {maximumFractionDigits:2});
     let y = 58;
     doc.setFontSize(9); doc.setFont('helvetica','normal'); doc.setTextColor(...CORES.cinza);
-    doc.text('Essence Residence · ' + new Date().toLocaleDateString('pt-BR'), ml, y);
+    doc.text('Pedido de compra · Essence Residence · ' + new Date().toLocaleDateString('pt-BR'), ml, y);
     y += 10;
 
     _pdfTabelaHeader(doc, y, [
       {label:'R E V E S T I M E N T O', x:8},
-      {label:'M E D I D A', x:95},
-      {label:'E S T O Q U E', x:122},
-      {label:'N E C E S S Á R I O', x:152},
-      {label:'F A L T A M', x:202, align:'right'},
+      {label:'M E D I D A', x:110},
+      {label:'C A I X A S', x:150},
+      {label:'Q U A N T I D A D E', x:202, align:'right'},
     ], CORES);
     y += 12;
 
     let alt = false;
-    faltando.forEach(x => {
+    itens.forEach(x => {
       if (y + 16 > 270) { doc.addPage(); y = 15; }
       doc.setFillColor(...(alt ? [245,244,240] : [255,255,255])); doc.rect(0, y, 210, 16, 'F');
       doc.setFillColor(...CORES.secundaria); doc.rect(0, y, 2.5, 16, 'F');
       doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...CORES.preto);
-      const nomeLinha = doc.splitTextToSize(x.rev.nome||'—', 82)[0];
-      doc.text(nomeLinha, 8, y+7);
+      doc.text(doc.splitTextToSize(x.rev.nome||'—', 98)[0], 8, y+7);
       doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...CORES.cinza);
-      doc.text(doc.splitTextToSize(x.manual ? ('Compra lançada' + (x.obs ? ' · ' + x.obs : '')) : ('Aptos: ' + _aptosDoItem(x).join(', ')), 82)[0], 8, y+12.5);
+      doc.text(doc.splitTextToSize((x.codigo ? 'Cód. ' + x.codigo : '') + (x.obs ? (x.codigo ? ' · ' : '') + x.obs : ''), 98)[0] || ' ', 8, y+12.5);
       doc.setFontSize(8.5); doc.setTextColor(...CORES.texto);
-      doc.text(String(x.rev.tamanho||'—'), 95, y+9);
-      doc.text(x.manual ? '—' : fmt2(x.estoqueM2) + ' m²', 122, y+9);
-      if (!x.manual && x.reservadoM2 > 0.005) { doc.setFontSize(6.5); doc.setTextColor(...CORES.cinza); doc.text('reserva técnica: ' + fmt2(x.reservadoM2) + ' m²', 122, y+13); doc.setFontSize(8.5); doc.setTextColor(...CORES.texto); }
-      doc.text(x.manual ? '—' : fmt2(x.necessarioM2) + ' m²', 152, y+9);
+      doc.text(String(x.rev.tamanho||'—'), 110, y+9);
+      doc.text(x.cx > 0 ? fmtN(x.cx) + ' cx' : '—', 150, y+9);
       doc.setFont('helvetica','bold'); doc.setTextColor(...CORES.secundaria);
-      doc.text(fmt2(x.saldoM2) + ' m²', 202, y+9, {align:'right'});
+      doc.text(fmt2(x.m2) + ' m²', 202, y+9, {align:'right'});
       doc.setDrawColor(...CORES.cinzaClaro); doc.setLineWidth(0.2);
       doc.line(0, y+16, 210, y+16);
       alt = !alt;
@@ -12364,15 +12366,15 @@ async function gerarPDFNecessidadeCompra() {
     y += 8;
 
     if (y > 265) { doc.addPage(); y = 15; }
-    const totalFaltam = faltando.reduce((s,x) => s + x.saldoM2, 0);
+    const totalM2 = itens.reduce((a, x) => a + x.m2, 0), totalCx = itens.reduce((a, x) => a + x.cx, 0);
     doc.setFillColor(...CORES.primaria); doc.rect(0, y, 210, 18, 'F');
     const sobrePrimaria = CORES.primaria[0] > 200 ? CORES.preto : [200,195,180];
     doc.setTextColor(...sobrePrimaria); doc.setFontSize(6.5); doc.setFont('helvetica','normal');
-    doc.text('T O T A L   E M   F A L T A', 8, y+8);
+    doc.text('T O T A L   D O   P E D I D O', 8, y+8);
     doc.setFontSize(7.5);
-    doc.text(faltando.length + (faltando.length > 1 ? ' revestimentos' : ' revestimento'), 8, y+15);
+    doc.text(itens.length + (itens.length > 1 ? ' revestimentos' : ' revestimento') + (totalCx > 0 ? ' · ' + fmtN(totalCx) + ' cx' : ''), 8, y+15);
     doc.setTextColor(...CORES.secundaria); doc.setFontSize(13); doc.setFont('helvetica','bold');
-    doc.text(fmt2(totalFaltam) + ' m²', 202, y+13, {align:'right'});
+    doc.text(fmt2(totalM2) + ' m²', 202, y+13, {align:'right'});
 
     const totalPag = doc.getNumberOfPages();
     for (let p=1;p<=totalPag;p++) {
@@ -12380,7 +12382,7 @@ async function gerarPDFNecessidadeCompra() {
       doc.setTextColor(...CORES.cinza); doc.setFontSize(7); doc.setFont('helvetica','normal');
       doc.text('Pág. '+p+' / '+totalPag, 202, 292, {align:'right'});
     }
-    doc.save('Necessidade-de-Compra-' + new Date().toISOString().slice(0,10) + '.pdf');
+    doc.save('Pedido-de-Compra-' + new Date().toISOString().slice(0,10) + '.pdf');
     showToast('PDF gerado!', 'success');
   } catch(e) { showToast('Erro ao gerar PDF: ' + e.message, 'error'); }
 }
