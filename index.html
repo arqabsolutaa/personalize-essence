@@ -12352,7 +12352,7 @@ async function gerarPDFNecessidadeCompra() {
       doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...CORES.preto);
       doc.text(doc.splitTextToSize(x.rev.nome||'—', 98)[0], 8, y+7);
       doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...CORES.cinza);
-      doc.text(doc.splitTextToSize((x.codigo ? 'Cód. ' + x.codigo : '') + (x.obs ? (x.codigo ? ' · ' : '') + x.obs : ''), 98)[0] || ' ', 8, y+12.5);
+      doc.text(doc.splitTextToSize(x.obs || ' ', 98)[0] || ' ', 8, y+12.5); // sem código interno: pode confundir o fornecedor
       doc.setFontSize(8.5); doc.setTextColor(...CORES.texto);
       doc.text(String(x.rev.tamanho||'—'), 110, y+9);
       doc.text(x.cx > 0 ? fmtN(x.cx) + ' cx' : '—', 150, y+9);
