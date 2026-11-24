@@ -4284,8 +4284,8 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
 <div id="vistorias-screen" class="screen">
   <div class="page-header">
     <div class="page-header-left">
-      <h1>Termos de Etapas</h1>
-      <p>Conferências de cada etapa pelo cliente e pelo arquiteto, com assinatura na tela, fotos e comentários</p>
+      <h1>Termos e Vistorias</h1>
+      <p>Clientes: conferência de cada etapa com assinatura na tela. Prestadores: termos de entrada na obra, assinados por link.</p>
     </div>
     <div class="header-actions">
       <button class="btn btn-secondary" onclick="loadVistorias(true)">Atualizar</button>
@@ -4293,10 +4293,14 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
     </div>
   </div>
   <div class="page-content">
+    <div id="vist-tabs" style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border)">
+      <button class="btn btn-secondary" id="vist-tab-cliente" onclick="setVistCat('cliente')" style="border-radius:8px 8px 0 0;border-bottom:none">Clientes</button>
+      <button class="btn btn-secondary" id="vist-tab-prestador" onclick="setVistCat('prestador')" style="border-radius:8px 8px 0 0;border-bottom:none">Prestadores</button>
+    </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
       <input id="vist-f-apto" class="filter-input" placeholder="Filtrar por apto ou cliente" oninput="renderVistorias()" style="min-width:220px">
       <select id="vist-f-status" class="filter-input" onchange="renderVistorias()">
-        <option value="">Todos</option><option value="aberto">Aguardando assinatura</option><option value="assinado">Assinados</option>
+        <option value="">Todos</option><option value="aberto">Aguardando assinatura</option><option value="aguardando_absoluta">Aguardando Absoluta</option><option value="assinado">Assinados</option>
       </select>
     </div>
     <div id="vist-lista"></div>
@@ -4314,15 +4318,15 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
         <select id="nt-modulo" class="filter-input" style="width:100%;margin-bottom:12px" onchange="ntTrocouTipo()"></select>
         <label style="font-size:12px;color:var(--text3)">Título do termo</label>
         <input id="nt-titulo" class="filter-input" style="width:100%;margin-bottom:12px">
-        <label style="font-size:12px;color:var(--text3)">Explicação do termo (1ª página, logo depois da capa: o que é este termo e como preencher)</label>
-        <textarea id="nt-intro" class="filter-input" rows="4" style="width:100%;font-family:inherit;margin-bottom:12px"></textarea>
-        <label style="font-size:12px;color:var(--text3)">Declaração (aparece no final, antes da assinatura, e no PDF)</label>
+        <div id="nt-bloco-intro"><label style="font-size:12px;color:var(--text3)">Explicação do termo (1ª página, logo depois da capa: o que é este termo e como preencher)</label>
+        <textarea id="nt-intro" class="filter-input" rows="4" style="width:100%;font-family:inherit;margin-bottom:12px"></textarea></div>
+        <label style="font-size:12px;color:var(--text3)" id="nt-lbl-texto">Declaração (aparece no final, antes da assinatura, e no PDF)</label>
         <textarea id="nt-texto" class="filter-input" rows="4" style="width:100%;font-family:inherit;margin-bottom:12px"></textarea>
-        <label style="font-size:12px;color:var(--text3)">Checklist (opcional — um item por linha; deixe vazio se o termo for só texto + assinaturas)</label>
-        <textarea id="nt-itens" class="filter-input" rows="8" style="width:100%;font-family:inherit"></textarea>
+        <div id="nt-bloco-itens"><label style="font-size:12px;color:var(--text3)">Checklist (opcional — um item por linha; deixe vazio se o termo for só texto + assinaturas)</label>
+        <textarea id="nt-itens" class="filter-input" rows="8" style="width:100%;font-family:inherit"></textarea></div>
       </div>
       <div id="nt-pronto" style="display:none">
-        <p style="font-size:13px;color:var(--text2);margin:0 0 10px">Termo criado. Envie este link ao cliente e ao arquiteto — eles abrem no celular, conferem os itens e assinam na tela.</p>
+        <p style="font-size:13px;color:var(--text2);margin:0 0 10px"><span id="nt-pronto-txt">Termo criado. Envie este link ao cliente e ao arquiteto — eles abrem no celular, conferem os itens e assinam na tela.</span></p>
         <input id="nt-link" class="filter-input" readonly style="width:100%" onclick="this.select()">
       </div>
     </div>
@@ -4331,6 +4335,24 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
       <button class="btn btn-secondary" id="nt-btn-copiar" style="display:none" onclick="ntCopiar()">Copiar link</button>
       <button class="btn btn-secondary" id="nt-btn-zap" style="display:none" onclick="ntZap()">WhatsApp</button>
       <button class="btn btn-primary" id="nt-btn-criar" onclick="criarNovoTermo()">Criar termo</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-contra">
+  <div class="modal" style="max-width:520px;width:96vw">
+    <div class="modal-header"><h2>Assinar como Absoluta</h2><button class="modal-close" onclick="fecharModal('modal-contra')">&times;</button></div>
+    <div class="modal-body">
+      <p id="contra-info" style="font-size:13px;color:var(--text2);margin:0 0 12px"></p>
+      <label style="font-size:12px;color:var(--text3)">Nome de quem assina pela Absoluta</label>
+      <input id="contra-nome" class="filter-input" style="width:100%;margin-bottom:12px" placeholder="Nome completo">
+      <div style="position:relative"><canvas id="contra-pad" style="width:100%;height:140px;background:#fff;border:1.5px dashed #b08a5a;border-radius:10px;touch-action:none;display:block"></canvas>
+        <button class="btn btn-secondary" style="position:absolute;right:6px;top:6px;padding:4px 9px;font-size:12px" onclick="contraLimpar()">Limpar</button></div>
+      <div id="contra-erro" style="color:var(--danger);font-size:13px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px">
+      <button class="btn btn-secondary" onclick="fecharModal('modal-contra')">Cancelar</button>
+      <button class="btn btn-primary" id="contra-btn" onclick="contraEnviar()">Assinar e concluir</button>
     </div>
   </div>
 </div>
@@ -7240,6 +7262,52 @@ const NT_MODELOS = {
   'Outro': { intro: '', titulo: 'Termo', texto: '', itens: [] }
 };
 
+const NT_MODELOS_PREST = {
+  'Automação': { titulo: 'Termo de Automação', itens: [], intro: '', texto: `TERMO DE RESPONSABILIDADE E CONDIÇÕES DE EXECUÇÃO – SERVIÇOS DE AUTOMAÇÃO
+
+Este termo é firmado entre ABSOLUTA CONSTRUTORA E INCORPORADORA ("Absoluta") e o PRESTADOR identificado abaixo, para a execução de serviços de automação no apartamento indicado, no empreendimento Essence Residence.
+
+1. OBJETO
+O Prestador executará os serviços de automação (infraestrutura, instalação, configuração e testes) no apartamento indicado, conforme o escopo e os valores combinados diretamente com a Absoluta e/ou com o cliente, e conforme o projeto e as orientações da obra.
+
+2. ACESSO E CONDUTA NA OBRA
+2.1. O Prestador e sua equipe acessarão somente o apartamento indicado e os caminhos necessários até ele, nos dias e horários autorizados pela Absoluta e pelo condomínio/obra.
+2.2. Todos os integrantes da equipe devem estar identificados e informados à Absoluta. Não é permitida a entrada de pessoas não informadas.
+2.3. O Prestador deve respeitar as regras de convivência, segurança e silêncio da obra, manter o local organizado e retirar, ao fim de cada dia de trabalho, embalagens, sobras e entulho gerados por seu serviço.
+
+3. SEGURANÇA E RESPONSABILIDADE DA EQUIPE
+3.1. O Prestador é o único responsável por sua equipe e deve fornecer e exigir o uso de equipamentos de proteção individual (EPIs) e cumprir as normas de segurança aplicáveis, em especial as de serviços com eletricidade (NR-10) e trabalho em altura (NR-35), quando for o caso.
+3.2. Não existe vínculo de emprego entre a Absoluta e o Prestador ou sua equipe. Salários, encargos trabalhistas, previdenciários, fiscais e seguros são de responsabilidade exclusiva do Prestador.
+3.3. Acidentes, danos ou prejuízos envolvendo o Prestador, sua equipe ou terceiros contratados por ele são de responsabilidade do Prestador.
+
+4. RESPEITO ÀS DEMAIS ETAPAS DA OBRA
+4.1. O Prestador não poderá cortar, furar, remover ou alterar revestimentos, pedras, forros, pinturas, estruturas ou instalações de outras etapas sem a autorização prévia da Absoluta. Passagens e furos devem seguir o projeto ou ser combinados antes.
+4.2. Deve proteger as áreas já acabadas (pisos, paredes, bancadas, esquadrias) durante o serviço.
+
+5. DANOS
+O Prestador responde pelos danos causados por ele, por sua equipe ou por seus equipamentos ao imóvel, aos materiais já instalados, a outros prestadores ou a terceiros. Deverá repará-los por sua conta no prazo combinado com a Absoluta ou, se não for possível, ressarcir o custo integral do reparo (materiais e mão de obra).
+
+6. MATERIAIS E FERRAMENTAS
+Ferramentas, equipamentos e materiais do Prestador ficam sob sua guarda e risco. A Absoluta não responde por perda, furto ou dano desses itens. Materiais fornecidos pela Absoluta ou pelo cliente devem ser usados exclusivamente no apartamento indicado.
+
+7. QUALIDADE, TESTES E ENTREGA
+7.1. Os serviços serão executados com boa técnica, conforme o projeto, as normas técnicas aplicáveis e as especificações dos fabricantes.
+7.2. Ao concluir, o Prestador testará todo o sistema instalado e acompanhará a conferência junto à Absoluta/cliente.
+7.3. Na entrega, o Prestador fornecerá a documentação do sistema (esquema de ligações/as built, lista de dispositivos, configurações, senhas e contas de acesso, e manuais), de forma que o cliente fique com o controle total do sistema.
+7.4. O Prestador garante os serviços executados pelo prazo combinado e, no mínimo, pelo prazo legal, e repassará ao cliente a garantia dos equipamentos fornecidos pelos fabricantes.
+
+8. SIGILO E PRIVACIDADE
+O Prestador não divulgará nem publicará imagens, plantas, projetos, senhas ou informações do apartamento, do cliente ou do empreendimento (inclusive em redes sociais) sem autorização por escrito. Esta obrigação continua valendo após o fim do serviço.
+
+9. DADOS DO PRESTADOR (LGPD)
+O Prestador declara que os dados e o documento informados neste termo são verdadeiros. A Absoluta usará esses dados apenas para cadastro, controle de acesso à obra e registro deste termo.
+
+10. ASSINATURA ELETRÔNICA
+As partes concordam em assinar este termo de forma eletrônica, com assinatura desenhada na tela. O termo passa a valer depois que o Prestador e a Absoluta assinarem, e fica registrado com data, hora e código de verificação.` },
+  'Outro': { titulo: 'Termo de Prestador', itens: [], intro: '', texto: '' }
+};
+let _vistCat = 'cliente';
+function setVistCat(c) { _vistCat = c; renderVistorias(); }
 async function loadVistorias(forcar) {
   const el = document.getElementById('vist-lista');
   if (!el) return;
@@ -7259,11 +7327,13 @@ function renderVistorias() {
   const el = document.getElementById('vist-lista');
   const q = (document.getElementById('vist-f-apto').value || '').toLowerCase().trim();
   const st = document.getElementById('vist-f-status').value;
-  const lista = dadosTermos.filter(t => (!st || t.status === st) && (!q || (t.apto + ' ' + t.cliente + ' ' + t.titulo).toLowerCase().includes(q)));
-  if (!lista.length) { el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">' + (dadosTermos.length ? 'Nenhum termo com esse filtro.' : 'Nenhum termo ainda. Clique em “+ Novo termo”.') + '</div>'; return; }
+  ['cliente', 'prestador'].forEach(c => { const b = document.getElementById('vist-tab-' + c); if (b) { const n = dadosTermos.filter(t => (t.categoria || 'cliente') === c).length; b.textContent = (c === 'cliente' ? 'Clientes' : 'Prestadores') + (n ? ' (' + n + ')' : ''); b.className = 'btn ' + (_vistCat === c ? 'btn-primary' : 'btn-secondary'); } });
+  const lista = dadosTermos.filter(t => (t.categoria || 'cliente') === _vistCat && (!st || t.status === st) && (!q || (t.apto + ' ' + t.cliente + ' ' + t.titulo + ' ' + (t.nome_cliente || '') + ' ' + (t.empresa || '')).toLowerCase().includes(q)));
+  if (!lista.length) { el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">' + (dadosTermos.length ? 'Nenhum termo com esse filtro.' : 'Nenhum termo ' + (_vistCat === 'prestador' ? 'de prestador ' : '') + 'ainda. Clique em “+ Novo termo”.') + '</div>'; return; }
   el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px">' + lista.map(t => {
     const n = t._itens.length, feitos = t._itens.filter(i => i.status === 'ok' || i.status === 'ressalva').length, res = t._itens.filter(i => i.status === 'ressalva').length;
     const ass = t.status === 'assinado';
+    if (t.categoria === 'prestador') return _cardTermoPrest(t);
     const badge = ass ? '<span style="background:#e8f5e9;color:#2e7d3f;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">✓ Assinado</span>' : '<span style="background:#fff3dc;color:#b26a00;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">Aguardando</span>';
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:700;font-size:15px">Apto ${escHtml(t.apto)}</div><div style="font-size:12px;color:var(--text3)">${escHtml(t.cliente || '—')}</div></div>${badge}</div>
@@ -7276,6 +7346,65 @@ function renderVistorias() {
         ${ass ? `<button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}&pdf=1','_blank')">PDF</button>` : `<button class="btn btn-secondary" style="color:var(--danger)" onclick="excluirTermo('${t.id}')">Excluir</button>`}
       </div></div>`;
   }).join('') + '</div>';
+}
+
+function _cardTermoPrest(t) {
+  const ass = t.status === 'assinado', ag = t.status === 'aguardando_absoluta';
+  const badge = ass ? '<span style="background:#e8f5e9;color:#2e7d3f;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">✓ Assinado</span>'
+    : ag ? '<span style="background:#e3ecfa;color:#2456a6;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">Aguardando Absoluta</span>'
+    : '<span style="background:#fff3dc;color:#b26a00;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">Aguardando prestador</span>';
+  const quem = t.nome_cliente ? escHtml(t.nome_cliente) + (t.empresa ? ' · ' + escHtml(t.empresa) : '') : 'Ainda não preenchido';
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:700;font-size:15px">Apto ${escHtml(t.apto)}</div><div style="font-size:12px;color:var(--text3)">${escHtml(t.cliente || '—')}</div></div>${badge}</div>
+    <div style="margin-top:10px;font-size:14px;font-weight:600">${escHtml(t.titulo)}</div>
+    <div style="font-size:12px;color:var(--text2);margin-top:4px">Prestador: ${quem}</div>
+    ${t.telefone ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">${escHtml(t.telefone)}${t.documento ? ' · ' + escHtml(t.documento) : ''}</div>` : ''}
+    <div style="font-size:12px;color:var(--text3);margin-top:2px">${ass ? 'Assinado em ' + escHtml(t.assinado_em) : 'Criado em ' + escHtml(t.criado_em)}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
+      ${ag ? `<button class="btn btn-primary" onclick="abrirContraAssinatura('${t.id}')">Assinar como Absoluta</button>` : ''}
+      <button class="btn btn-secondary" onclick="copiarLinkTermo('${t.token}')">Copiar link</button>
+      ${!ass && !ag ? `<button class="btn btn-secondary" onclick="zapTermoPrest('${t.token}')">WhatsApp</button>` : ''}
+      <button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}','_blank')">${ass || ag ? 'Ver termo' : 'Abrir'}</button>
+      ${ass ? `<button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}&pdf=1','_blank')">PDF</button>` : `<button class="btn btn-secondary" style="color:var(--danger)" onclick="excluirTermo('${t.id}')">Excluir</button>`}
+    </div></div>`;
+}
+function zapTermoPrest(token) { window.open('https://wa.me/?text=' + encodeURIComponent('Olá! Segue o termo para você ler e assinar antes de iniciar o serviço na obra: ' + _linkTermo(token)), '_blank'); }
+
+let _contraId = '', _contraPad = null;
+function abrirContraAssinatura(id) {
+  const t = dadosTermos.find(x => x.id === id); if (!t) return;
+  _contraId = id;
+  document.getElementById('contra-info').textContent = 'Termo de ' + (t.nome_cliente || 'prestador') + ' · Apto ' + t.apto + '. Ao assinar, o termo é concluído e não pode mais ser alterado.';
+  let nome = ''; try { nome = localStorage.getItem('termo_nome_absoluta') || ''; } catch (e) {}
+  document.getElementById('contra-nome').value = nome;
+  document.getElementById('contra-erro').style.display = 'none';
+  const b = document.getElementById('contra-btn'); b.disabled = false; b.textContent = 'Assinar e concluir';
+  abrirModal('modal-contra');
+  setTimeout(() => {
+    const cv = document.getElementById('contra-pad'), dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+    const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr); ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#111';
+    const pad = _contraPad = { cv, ctx, desenhou: false, desenhando: false };
+    const pos = e => { const q = cv.getBoundingClientRect(); return { x: e.clientX - q.left, y: e.clientY - q.top }; };
+    cv.onpointerdown = e => { e.preventDefault(); cv.setPointerCapture(e.pointerId); pad.desenhando = true; const p = pos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x + .1, p.y + .1); ctx.stroke(); pad.desenhou = true; };
+    cv.onpointermove = e => { if (!pad.desenhando) return; e.preventDefault(); const p = pos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+    cv.onpointerup = cv.onpointercancel = () => { pad.desenhando = false; };
+  }, 50);
+}
+function contraLimpar() { const p = _contraPad; if (!p) return; p.ctx.save(); p.ctx.setTransform(1, 0, 0, 1, 0, 0); p.ctx.clearRect(0, 0, p.cv.width, p.cv.height); p.ctx.restore(); p.desenhou = false; }
+async function contraEnviar() {
+  const erro = document.getElementById('contra-erro'), nome = document.getElementById('contra-nome').value.trim();
+  const falha = m => { erro.textContent = m; erro.style.display = 'block'; };
+  erro.style.display = 'none';
+  if (!nome) return falha('Escreva o nome de quem assina.');
+  if (!_contraPad || !_contraPad.desenhou) return falha('Falta a assinatura.');
+  const c = document.createElement('canvas'); c.width = 420; c.height = 140; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 420, 140); x.drawImage(_contraPad.cv, 0, 0, 420, 140);
+  const b = document.getElementById('contra-btn'); b.disabled = true; b.textContent = 'Enviando…';
+  try {
+    await _enviarComprovante('contrassinarTermoVistoria', { id: _contraId, nome_arquiteto: nome, assinatura_arquiteto: c.toDataURL('image/png') });
+    try { localStorage.setItem('termo_nome_absoluta', nome); } catch (e) {}
+    fecharModal('modal-contra'); showToast('Termo assinado pelas duas partes ✓'); loadVistorias(true);
+  } catch (e) { b.disabled = false; b.textContent = 'Assinar e concluir'; falha(e.message); }
 }
 
 function copiarLinkTermo(token) {
@@ -7299,7 +7428,13 @@ async function abrirNovoTermo() {
   aptos.sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0) || a.localeCompare(b));
   if (!aptos.length) { sel0.innerHTML = '<option value="">Não consegui carregar os apartamentos — clique em "Atualizar dados" no menu e tente de novo</option>'; }
   else document.getElementById('nt-apto').innerHTML = '<option value="">— Selecione —</option>' + aptos.map(ap => `<option value="${escHtml(ap)}">Apto ${escHtml(ap)} - ${escHtml(_clienteDoAp(ap))}</option>`).join('');
-  document.getElementById('nt-modulo').innerHTML = Object.keys(NT_MODELOS).map(k => `<option>${k}</option>`).join('');
+  const _mods = _vistCat === 'prestador' ? NT_MODELOS_PREST : NT_MODELOS;
+  document.getElementById('nt-modulo').innerHTML = Object.keys(_mods).map(k => `<option>${k}</option>`).join('');
+  document.querySelector('#modal-novo-termo .modal-header h2').textContent = _vistCat === 'prestador' ? 'Novo termo de prestador' : 'Novo termo';
+  document.getElementById('nt-bloco-intro').style.display = document.getElementById('nt-bloco-itens').style.display = _vistCat === 'prestador' ? 'none' : '';
+  document.getElementById('nt-lbl-texto').textContent = _vistCat === 'prestador' ? 'Texto do termo (o prestador lê tudo antes de assinar)' : 'Declaração (aparece no final, antes da assinatura, e no PDF)';
+  document.getElementById('nt-texto').rows = _vistCat === 'prestador' ? 14 : 4;
+  document.getElementById('nt-pronto-txt').textContent = _vistCat === 'prestador' ? 'Termo criado. Envie este link ao prestador: ele lê, preenche os dados, anexa o documento e assina no celular. Depois você assina como Absoluta aqui no painel.' : 'Termo criado. Envie este link ao cliente e ao arquiteto — eles abrem no celular, conferem os itens e assinam na tela.';
   ntTrocouTipo();
   document.getElementById('nt-form').style.display = 'block'; document.getElementById('nt-pronto').style.display = 'none';
   ['nt-btn-copiar', 'nt-btn-zap'].forEach(i => document.getElementById(i).style.display = 'none');
@@ -7307,7 +7442,7 @@ async function abrirNovoTermo() {
   abrirModal('modal-novo-termo');
 }
 function ntTrocouTipo() {
-  const m = NT_MODELOS[document.getElementById('nt-modulo').value];
+  const m = (_vistCat === 'prestador' ? NT_MODELOS_PREST : NT_MODELOS)[document.getElementById('nt-modulo').value];
   document.getElementById('nt-titulo').value = m.titulo;
   document.getElementById('nt-itens').value = m.itens.join('\n');
   document.getElementById('nt-intro').value = m.intro || '';
@@ -7320,7 +7455,7 @@ async function criarNovoTermo() {
   const itens = document.getElementById('nt-itens').value.split('\n').map(x => x.trim()).filter(Boolean);
   const b = document.getElementById('nt-btn-criar'); b.disabled = true; b.textContent = 'Criando…';
   try {
-    const r = await apiPost('criarTermoVistoria', { apto, cliente: _clienteDoAp(apto), modulo: document.getElementById('nt-modulo').value, titulo: document.getElementById('nt-titulo').value, texto: document.getElementById('nt-texto').value, intro: document.getElementById('nt-intro').value, itens });
+    const r = await _enviarComprovante('criarTermoVistoria', { apto, cliente: _clienteDoAp(apto), modulo: document.getElementById('nt-modulo').value, categoria: _vistCat, titulo: document.getElementById('nt-titulo').value, texto: document.getElementById('nt-texto').value, intro: document.getElementById('nt-intro').value, itens });
     _ntToken = r.token;
     document.getElementById('nt-link').value = _linkTermo(r.token);
     document.getElementById('nt-form').style.display = 'none'; document.getElementById('nt-pronto').style.display = 'block';
@@ -7329,7 +7464,7 @@ async function criarNovoTermo() {
   } catch (e) { b.disabled = false; b.textContent = 'Criar termo'; showToast('Erro: ' + e.message, 'error'); }
 }
 function ntCopiar() { copiarLinkTermo(_ntToken); }
-function ntZap() { window.open('https://wa.me/?text=' + encodeURIComponent('Segue o link para conferência e OK do apartamento: ' + _linkTermo(_ntToken)), '_blank'); }
+function ntZap() { if (_vistCat === 'prestador') return zapTermoPrest(_ntToken); window.open('https://wa.me/?text=' + encodeURIComponent('Segue o link para conferência e OK do apartamento: ' + _linkTermo(_ntToken)), '_blank'); }
 
 function showToast(msg, type = 'default') {
   const t = document.getElementById('toast');

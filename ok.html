@@ -154,11 +154,13 @@ async function carregar() {
     const r = await jsonp(SCRIPT_URL + '?action=getTermoVistoriaPublico&token=' + encodeURIComponent(TOKEN));
     if (r.error) throw new Error(r.error);
     termo = r.data;
-    travado = termo.status === 'assinado';
+    const prest = termo.categoria === 'prestador';
+    travado = prest ? termo.status !== 'aberto' : termo.status === 'assinado';
     document.getElementById('titulo').textContent = termo.titulo || 'Termo de Conferência';
     document.getElementById('sub').textContent = 'Apto ' + termo.apto + (termo.cliente ? ' · ' + termo.cliente : '');
     document.title = (termo.titulo || 'Termo de Conferência') + ' · Apto ' + termo.apto;
-    if (travado) { if (window._enviado) telaEnviado(); else render(); } else renderWizard();
+    if (prest) { if (travado && window._enviado) telaEnviadoPrest(); else renderPrestador(); }
+    else if (travado) { if (window._enviado) telaEnviado(); else render(); } else renderWizard();
     if (travado && params.get('pdf') === '1') baixarPdf();
   } catch (e) {
     document.getElementById('app').innerHTML = '<div class="center"><strong>Não foi possível abrir o termo</strong><br><br>' + esc(e.message) + '</div>';
@@ -334,6 +336,7 @@ async function imgParaDataUrl(url) {
   } catch (e) { return null; }
 }
 async function baixarPdf() {
+  if (termo && termo.categoria === 'prestador') return baixarPdfPrestador();
   const btn = document.getElementById('btn-pdf'); if (btn) { btn.disabled = true; btn.textContent = 'Gerando PDF…'; }
   try {
     const J = window.jspdf && window.jspdf.jsPDF; if (!J) throw new Error('Biblioteca de PDF não carregou');
@@ -405,6 +408,140 @@ async function baixarPdf() {
     doc.setFontSize(7.5); doc.setTextColor(140, 132, 103);
     doc.text('Termo assinado em ' + termo.assinado_em + '  ·  Código de verificação: ' + termo.hash, 12, y);
     doc.save('Termo-Apto' + termo.apto + '-' + (termo.titulo || 'obra').replace(/[^\w]+/g, '-').slice(0, 40) + '.pdf');
+  } catch (e) { alert('Não consegui gerar o PDF: ' + e.message); }
+  if (btn) { btn.disabled = false; btn.textContent = 'Baixar PDF do termo'; }
+}
+
+// ================= TERMO DE PRESTADOR (dados + foto do documento + aceite + assinatura) =================
+function _maskDoc(v) {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 14);
+  if (d.length <= 11) return d.replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+}
+function _maskTel(v) {
+  const d = String(v || '').replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+  if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+  return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+}
+function _statusPrestBanner() {
+  if (termo.status === 'assinado') return `<div class="assinado-banner"><strong>✓ Termo assinado pelas duas partes</strong> em ${esc(termo.assinado_em)}<br>Código de verificação: <strong>${esc(termo.hash)}</strong></div>`;
+  return `<div class="assinado-banner" style="background:var(--warn-bg);color:var(--warn)"><strong>✓ Sua assinatura foi enviada.</strong><br>O termo será válido quando a Absoluta assinar também. Você pode baixar a cópia quando estiver completo.</div>`;
+}
+function renderPrestador() {
+  document.body.classList.remove('wiz');
+  const app = document.getElementById('app');
+  document.getElementById('sub').textContent = 'Prestador de serviço · Apto ' + termo.apto;
+  let h = '';
+  if (travado) h += _statusPrestBanner();
+  h += `<h2>Termo</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>`;
+  if (travado) {
+    h += `<h2>Dados do prestador</h2><div class="card" style="margin-top:8px;font-size:14px;line-height:1.8">
+      <strong>Nome:</strong> ${esc(termo.nome_cliente)}<br><strong>CPF/CNPJ:</strong> ${esc(termo.documento)}<br><strong>Empresa:</strong> ${esc(termo.empresa)}<br><strong>Telefone:</strong> ${esc(termo.telefone)}</div>
+      <h2>Assinaturas</h2><div class="card" style="margin-top:8px">
+      <div><strong>Prestador:</strong> ${esc(termo.nome_cliente)}<br><img class="sigimg" src="${esc(termo.assinatura_cliente)}" alt="Assinatura do prestador"></div>
+      ${termo.assinatura_arquiteto ? `<div style="margin-top:16px"><strong>Absoluta:</strong> ${esc(termo.nome_arquiteto)}<br><img class="sigimg" src="${esc(termo.assinatura_arquiteto)}" alt="Assinatura da Absoluta"></div>` : ''}</div>
+      ${termo.status === 'assinado' ? `<button class="btn primary big" style="margin-top:16px" onclick="baixarPdf()" id="btn-pdf">Baixar PDF do termo</button>` : ''}`;
+    app.innerHTML = h; return;
+  }
+  h += `<h2>Seus dados</h2><div class="card" style="margin-top:8px">
+    <label class="intro">Nome completo</label><input type="text" id="p-nome" autocomplete="name" placeholder="Nome e sobrenome" style="margin-top:4px">
+    <label class="intro" style="display:block;margin-top:12px">CPF ou CNPJ</label><input type="text" id="p-doc" inputmode="numeric" placeholder="Somente números" style="margin-top:4px">
+    <label class="intro" style="display:block;margin-top:12px">Empresa</label><input type="text" id="p-emp" placeholder="Nome da empresa (ou &quot;autônomo&quot;)" style="margin-top:4px">
+    <label class="intro" style="display:block;margin-top:12px">Telefone (com DDD)</label><input type="text" id="p-tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" style="margin-top:4px">
+  </div>
+  <h2>Foto do documento</h2><div class="card" style="margin-top:8px">
+    <div class="intro">Envie uma foto nítida do seu RG, CNH ou, se for empresa, do cartão CNPJ.</div>
+    <div class="fotos" id="p-fotos">${termo.doc_foto ? `<img src="${fotoUrl(termo.doc_foto, 300)}" alt="Documento">` : ''}
+      <label class="btn" id="p-doc-btn">📷 ${termo.doc_foto ? 'Trocar foto' : 'Tirar / escolher foto'}<input type="file" accept="image/*" style="display:none" onchange="enviarDocPrest(this)"></label></div>
+  </div>
+  <h2>Assinatura</h2><div class="card" style="margin-top:8px">
+    <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="p-aceite" style="margin-top:3px;width:18px;height:18px">
+      <span>Li o termo acima e concordo com todas as condições.</span></label>
+    <div class="sig" style="margin-top:14px"><strong>Assine aqui</strong>
+      <canvas id="pad-cliente"></canvas><div class="hint" id="hint-cliente">Assine aqui com o dedo</div><button class="btn limpar" onclick="limpar('cliente')">Limpar</button></div>
+    <div class="erro" id="erro" style="display:none"></div>
+    <button class="btn primary big" style="margin-top:14px" id="btn-assinar" onclick="assinarPrest()">Assinar e enviar</button>
+  </div>`;
+  app.innerHTML = h;
+  document.getElementById('p-doc').addEventListener('input', e => { e.target.value = _maskDoc(e.target.value); });
+  document.getElementById('p-tel').addEventListener('input', e => { e.target.value = _maskTel(e.target.value); });
+  iniciarPad('cliente');
+}
+async function enviarDocPrest(input) {
+  const file = input.files && input.files[0]; if (!file) return;
+  mostrarSalvo('Enviando foto…');
+  try {
+    const b64 = await reduzirImagem(file, 1600);
+    const r = await post('uploadFotoTermoVistoria', { token: TOKEN, item_id: '__doc', mimeType: 'image/jpeg', base64data: b64 });
+    termo.doc_foto = r.fileId;
+    const box = document.getElementById('p-fotos'), label = document.getElementById('p-doc-btn');
+    box.querySelectorAll('img').forEach(i => i.remove());
+    const im = document.createElement('img'); im.src = fotoUrl(r.fileId, 300); im.alt = 'Documento'; box.insertBefore(im, label);
+    label.firstChild.textContent = '📷 Trocar foto';
+    mostrarSalvo('Foto enviada ✓', true);
+  } catch (e) { mostrarSalvo('Erro na foto: ' + e.message); }
+  input.value = '';
+}
+async function assinarPrest() {
+  const erro = document.getElementById('erro'); erro.style.display = 'none';
+  const falha = m => { erro.textContent = m; erro.style.display = 'block'; erro.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
+  const nome = document.getElementById('p-nome').value.trim(), doc = document.getElementById('p-doc').value.trim(), emp = document.getElementById('p-emp').value.trim(), tel = document.getElementById('p-tel').value.trim();
+  const dd = doc.replace(/\D/g, '');
+  if (nome.split(/\s+/).filter(Boolean).length < 2) return falha('Escreva o nome completo.');
+  if (dd.length !== 11 && dd.length !== 14) return falha('Confira o CPF (11 números) ou CNPJ (14 números).');
+  if (!emp) return falha('Informe a empresa (ou escreva "autônomo").');
+  if (tel.replace(/\D/g, '').length < 10) return falha('Informe o telefone com DDD.');
+  if (!termo.doc_foto) return falha('Envie a foto do seu documento.');
+  if (!document.getElementById('p-aceite').checked) return falha('Marque que leu e concorda com o termo.');
+  if (!pads.cliente.desenhou) return falha('Falta a sua assinatura.');
+  if (!confirm('Enviar o termo assinado? Depois de enviado ele não poderá mais ser alterado.')) return;
+  const btn = document.getElementById('btn-assinar'); btn.disabled = true; btn.textContent = 'Enviando…';
+  try {
+    await post('assinarTermoVistoria', { token: TOKEN, nome_cliente: nome, documento: doc, empresa: emp, telefone: tel, aceite: true, assinatura_cliente: exportarAssinatura('cliente') });
+    window._enviado = true; await carregar(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (e) { btn.disabled = false; btn.textContent = 'Assinar e enviar'; falha(e.message); }
+}
+function telaEnviadoPrest() {
+  document.body.classList.add('wiz');
+  document.getElementById('app').innerHTML = `<div class="ok-final"><div class="circ">✓</div><h2 class="q-txt" style="margin:0 0 10px">Termo assinado!</h2>
+    <p style="color:var(--text2);margin:0 0 28px">Recebemos o seu termo e a sua assinatura. Ele passa a valer quando a Absoluta assinar também.</p>
+    <button class="btn big" onclick="window._enviado=false;document.body.classList.remove('wiz');renderPrestador();window.scrollTo(0,0)">Ver o termo</button></div>`;
+}
+async function baixarPdfPrestador() {
+  const btn = document.getElementById('btn-pdf'); if (btn) { btn.disabled = true; btn.textContent = 'Gerando PDF…'; }
+  try {
+    const J = window.jspdf && window.jspdf.jsPDF; if (!J) throw new Error('Biblioteca de PDF não carregou');
+    const doc = new J(); const W = 210; let y = 0;
+    const marrom = [34, 58, 44], dourado = [176, 138, 90];
+    const cab = () => { doc.setFillColor(...marrom); doc.rect(0, 0, W, 18, 'F'); doc.setTextColor(238, 240, 228); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ABSOLUTA', 12, 11.5, { charSpace: 1.5 });
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text((termo.titulo || 'Termo') + '  ·  Apto ' + termo.apto, W - 12, 11.5, { align: 'right' }); };
+    const nova = h => { if (y + h > 282) { doc.addPage(); cab(); y = 28; } };
+    cab(); y = 32;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(28, 26, 21);
+    const tl = doc.splitTextToSize(termo.titulo || 'Termo', 186); doc.text(tl, 12, y); y += tl.length * 7;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90, 86, 72);
+    doc.text('Essence Residence · Apartamento ' + termo.apto + (termo.cliente ? ' · ' + termo.cliente : ''), 12, y); y += 10;
+    doc.setFontSize(10); doc.setTextColor(28, 26, 21);
+    for (const ln of doc.splitTextToSize(termo.texto || '', 186)) { nova(6); doc.text(ln, 12, y); y += 5.2; }
+    y += 6; nova(46);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...dourado); doc.text('DADOS DO PRESTADOR', 12, y); y += 6;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(28, 26, 21);
+    [['Nome', termo.nome_cliente], ['CPF/CNPJ', termo.documento], ['Empresa', termo.empresa], ['Telefone', termo.telefone]].forEach(l => { doc.text(l[0] + ': ' + (l[1] || ''), 12, y); y += 5.6; });
+    y += 4;
+    if (termo.doc_foto) {
+      const d = await imgParaDataUrl(fotoUrl(termo.doc_foto, 900));
+      if (d) { nova(70); try { doc.addImage(d, 'JPEG', 12, y, 80, 60); y += 66; } catch (e) {} }
+    }
+    nova(50);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...dourado); doc.text('ASSINATURAS', 12, y); y += 4; doc.setDrawColor(...dourado);
+    const sig = (img, nome, papel, x) => { try { doc.addImage(img, 'PNG', x, y, 60, 20); } catch (e) {} doc.line(x, y + 22, x + 80, y + 22);
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(28, 26, 21); doc.text(nome, x, y + 27); doc.setFont('helvetica', 'normal'); doc.setTextColor(120, 114, 96); doc.text(papel, x, y + 31.5); };
+    sig(termo.assinatura_cliente, termo.nome_cliente, 'Prestador', 12); if (termo.assinatura_arquiteto) sig(termo.assinatura_arquiteto, termo.nome_arquiteto, 'Absoluta', 112);
+    y += 40; doc.setFontSize(7.5); doc.setTextColor(140, 132, 103);
+    doc.text('Termo assinado pelas duas partes em ' + termo.assinado_em + '  ·  Código de verificação: ' + termo.hash, 12, y);
+    doc.save('Termo-Prestador-Apto' + termo.apto + '-' + (termo.nome_cliente || 'prestador').replace(/[^\w]+/g, '-').slice(0, 30) + '.pdf');
   } catch (e) { alert('Não consegui gerar o PDF: ' + e.message); }
   if (btn) { btn.disabled = false; btn.textContent = 'Baixar PDF do termo'; }
 }
