@@ -105,6 +105,13 @@
   .resumo-lin { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px; cursor: pointer; }
   .resumo-lin:last-child { border-bottom: none; }
   .fotos img { width: 78px; height: 78px; }
+  .capa-banner { display: block; width: 100%; height: auto; aspect-ratio: 2000/457; object-fit: cover; background: #223a2c; }
+  .info-strip { background: #f0eee8; border-bottom: 2px solid #8c8467; display: grid; grid-template-columns: repeat(4, 1fr); }
+  .info-strip div { padding: 12px 14px; border-left: 1px solid #8c8467; min-width: 0; }
+  .info-strip div:first-child { border-left: none; }
+  .info-strip small { display: block; font-size: 8px; letter-spacing: 3px; color: #787670; text-transform: uppercase; margin-bottom: 4px; }
+  .info-strip b { display: block; font-size: 13px; color: #0e0e0e; line-height: 1.25; overflow-wrap: anywhere; }
+  @media (max-width: 560px) { .info-strip { grid-template-columns: 1fr 1fr; } .info-strip div:nth-child(3) { border-left: none; } .info-strip div:nth-child(n+3) { border-top: 1px solid #8c8467; } }
   .center { text-align: center; padding: 60px 20px; color: var(--text2); }
 </style>
 </head>
@@ -436,6 +443,11 @@ function _maskTel(v) {
   if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
   return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
 }
+function _capaPrest() {
+  return `<img class="capa-banner" src="assets/capa_civil_ac.png" alt="Essence Residence"><div class="info-strip">
+    <div><small>Cliente</small><b>${esc(termo.cliente || '—')}</b></div><div><small>Unidade</small><b>Apto ${esc(termo.apto)}</b></div>
+    <div><small>Serviço</small><b>${esc(termo.titulo.replace(/^Termo de /, ''))}</b></div><div><small>Prazo</small><b>${esc(termo.prazo || 'a combinar')}</b></div></div>`;
+}
 function _servicoHtml() {
   return `<div class="card" style="margin-top:14px;font-size:14px;line-height:1.8"><strong>Apartamento:</strong> ${esc(termo.apto)}${termo.cliente ? ' · ' + esc(termo.cliente) : ''}<br><strong>Serviço:</strong> ${esc(termo.titulo.replace(/^Termo de /, ''))}<br><strong>Prazo de execução:</strong> ${esc(termo.prazo || 'a combinar')}</div>`;
 }
@@ -450,15 +462,15 @@ function renderPrestador() {
   const app = document.getElementById('app');
   document.getElementById('sub').textContent = 'Prestador de serviço · Apto ' + termo.apto;
   if (travado) {
-    document.body.classList.remove('wiz');
-    let h = _statusPrestBanner();
-    h += `${_servicoHtml()}<h2>Termo</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>
+    document.body.classList.add('wiz');
+    let h = _capaPrest() + '<div class="pagina" style="padding-bottom:40px">' + _statusPrestBanner();
+    h += `<h2>Termo</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>
       <h2>Dados do prestador</h2><div class="card" style="margin-top:8px;font-size:14px;line-height:1.8">
       <strong>Nome:</strong> ${esc(termo.nome_cliente)}<br><strong>CPF:</strong> ${esc(termo.documento)}<br>${termo.cnpj ? `<strong>CNPJ:</strong> ${esc(termo.cnpj)}<br>` : ''}<strong>Empresa:</strong> ${esc(termo.empresa)}<br><strong>Telefone:</strong> ${esc(termo.telefone)}</div>
       <h2>Assinaturas</h2><div class="card" style="margin-top:8px">
       <div><strong>Prestador:</strong> ${esc(termo.nome_cliente)}<br><img class="sigimg" src="${esc(termo.assinatura_cliente)}" alt="Assinatura do prestador"></div>
       ${termo.assinatura_arquiteto ? `<div style="margin-top:16px"><strong>Absoluta:</strong> ${esc(termo.nome_arquiteto)}<br><img class="sigimg" src="${esc(termo.assinatura_arquiteto)}" alt="Assinatura da Absoluta"></div>` : ''}</div>
-      ${termo.status === 'assinado' ? `<button class="btn primary big" style="margin-top:16px" onclick="baixarPdf()" id="btn-pdf">Baixar PDF do termo</button>` : ''}`;
+      ${termo.status === 'assinado' ? `<button class="btn primary big" style="margin-top:16px" onclick="baixarPdf()" id="btn-pdf">Baixar PDF do termo</button>` : ''}</div>`;
     app.innerHTML = h; return;
   }
   desenharP();
@@ -498,7 +510,7 @@ function desenharP() {
       <div class="erro-passo" id="erro-passo"></div>`;
     nav = `<button class="btn" onclick="voltarP()">Voltar</button><button class="btn primary" onclick="proxP()">Próximo</button>`;
   } else if (q === 'termo') {
-    corpo = `<div class="q-num">Etapa 3 de 4</div><p class="leia">Leia com atenção</p>${_servicoHtml()}<div class="card"><div class="capa-txt">${esc(termo.texto)}</div></div>
+    corpo = `<div class="q-num">Etapa 3 de 4</div><p class="leia">Leia com atenção</p><div class="card"><div class="capa-txt">${esc(termo.texto)}</div></div>
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;margin-top:18px"><input type="checkbox" id="p-aceite" style="margin-top:3px;width:18px;height:18px" ${PF.aceite ? 'checked' : ''}><span>Li o termo acima e concordo com todas as condições.</span></label>
       <div class="erro-passo" id="erro-passo"></div>`;
     nav = `<button class="btn" onclick="voltarP()">Voltar</button><button class="btn primary" onclick="proxP()">Próximo</button>`;
@@ -511,7 +523,7 @@ function desenharP() {
       <button class="btn primary big" style="margin-top:14px" id="btn-assinar" onclick="assinarPrest()">Assinar e enviar</button>`;
     nav = `<button class="btn" style="flex:1" onclick="voltarP()">Voltar</button>`;
   }
-  app.innerHTML = `<div class="topo-wiz"><div class="lin"><img class="topo-logo" src="assets/logo-essence.png" alt="Essence Residence"><span>${titulos[q]}</span></div><div class="barra"><i style="width:${Math.round((pPasso + 1) / (total + 1) * 100)}%"></i></div></div>
+  app.innerHTML = `${_capaPrest()}<div class="topo-wiz"><div class="lin"><span>Termo do prestador</span><span>${titulos[q]}</span></div><div class="barra"><i style="width:${Math.round((pPasso + 1) / (total + 1) * 100)}%"></i></div></div>
     <div class="pagina">${corpo}</div><div class="rodape-wiz"><div class="in">${nav}</div></div>`;
   if (q === 'dados') {
     document.getElementById('p-cpf').addEventListener('input', e => { e.target.value = _maskDoc(e.target.value.replace(/\D/g, '').slice(0, 11)); });
@@ -580,12 +592,21 @@ async function baixarPdfPrestador() {
     const cab = () => { doc.setFillColor(...marrom); doc.rect(0, 0, W, 18, 'F'); doc.setTextColor(238, 240, 228); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ABSOLUTA', 12, 11.5, { charSpace: 1.5 });
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text((termo.titulo || 'Termo') + '  ·  Apto ' + termo.apto, W - 12, 11.5, { align: 'right' }); };
     const nova = h => { if (y + h > 282) { doc.addPage(); cab(); y = 28; } };
-    cab(); y = 32;
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(28, 26, 21);
-    const tl = doc.splitTextToSize(termo.titulo || 'Termo', 186); doc.text(tl, 12, y); y += tl.length * 7;
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90, 86, 72);
-    doc.text('Essence Residence · Apartamento ' + termo.apto + (termo.cliente ? ' · ' + termo.cliente : ''), 12, y); y += 5.5;
-    doc.text('Prazo de execução: ' + (termo.prazo || 'a combinar'), 12, y); y += 10;
+    const banner = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = 'assets/capa_civil_ac.png'; });
+    if (banner) { const c = document.createElement('canvas'); c.width = 2000; c.height = 457; c.getContext('2d').drawImage(banner, 0, 0, 2000, 457); try { doc.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 48); } catch (e) {} }
+    else { doc.setFillColor(...marrom); doc.rect(0, 0, W, 48, 'F'); }
+    doc.setFillColor(240, 238, 232); doc.rect(0, 50, W, 32, 'F'); doc.setDrawColor(140, 132, 103); doc.setLineWidth(0.3);
+    [62, 105, 150].forEach(x => doc.line(x, 56, x, 76));
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(120, 118, 112);
+    ['C L I E N T E', 'U N I D A D E', 'S E R V I Ç O', 'P R A Z O'].forEach((l, i) => doc.text(l, [8, 67, 110, 155][i], 62));
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(14, 14, 14);
+    doc.text(String(termo.cliente || '—').slice(0, 24), 8, 73); doc.text('Apto ' + termo.apto, 67, 73); doc.text(String(termo.titulo || '').replace(/^Termo de /, '').slice(0, 22), 110, 73);
+    doc.text(doc.splitTextToSize(String(termo.prazo || 'a combinar'), 50).slice(0, 2), 155, 70);
+    doc.setDrawColor(140, 132, 103); doc.setLineWidth(0.8); doc.line(0, 82, W, 82);
+    y = 94;
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(28, 26, 21);
+    const tl = doc.splitTextToSize(termo.titulo || 'Termo', 186); doc.text(tl, 12, y); y += tl.length * 7 + 3;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.setFontSize(10); doc.setTextColor(28, 26, 21);
     for (const ln of doc.splitTextToSize(termo.texto || '', 186)) { nova(6); doc.text(ln, 12, y); y += 5.2; }
     y += 6; nova(46);
