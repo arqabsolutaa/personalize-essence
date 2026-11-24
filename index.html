@@ -7374,7 +7374,8 @@ function renderVistorias() {
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
         <button class="btn btn-secondary" onclick="copiarLinkTermo('${t.token}')">Copiar link</button>
         <button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}','_blank')">${ass ? 'Ver termo' : 'Abrir'}</button>
-        ${ass ? `<button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}&pdf=1','_blank')">PDF</button>` : `<button class="btn btn-secondary" style="color:var(--danger)" onclick="excluirTermo('${t.id}')">Excluir</button>`}
+        ${ass ? `<button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}&pdf=1','_blank')">PDF</button>` : ''}
+        <button class="btn btn-secondary" style="color:var(--danger)" onclick="excluirTermo('${t.id}', ${ass})">Excluir</button>
       </div></div>`;
   }).join('') + '</div>';
 }
@@ -7397,7 +7398,8 @@ function _cardTermoPrest(t) {
       <button class="btn btn-secondary" onclick="copiarLinkTermo('${t.token}')">Copiar link</button>
       ${!ass && !ag ? `<button class="btn btn-secondary" onclick="zapTermoPrest('${t.token}')">WhatsApp</button>` : ''}
       <button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}','_blank')">${ass || ag ? 'Ver termo' : 'Abrir'}</button>
-      ${ass ? `<button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}&pdf=1','_blank')">PDF</button>` : `<button class="btn btn-secondary" style="color:var(--danger)" onclick="excluirTermo('${t.id}')">Excluir</button>`}
+      ${ass ? `<button class="btn btn-secondary" onclick="window.open('${_linkTermo(t.token)}&pdf=1','_blank')">PDF</button>` : ''}
+      <button class="btn btn-secondary" style="color:var(--danger)" onclick="excluirTermo('${t.id}', ${ass})">Excluir</button>
     </div></div>`;
 }
 function zapTermoPrest(token) { window.open('https://wa.me/?text=' + encodeURIComponent('Olá! Segue o termo para você ler e assinar antes de iniciar o serviço na obra: ' + _linkTermo(token)), '_blank'); }
@@ -7443,9 +7445,11 @@ function copiarLinkTermo(token) {
   const l = _linkTermo(token);
   (navigator.clipboard ? navigator.clipboard.writeText(l) : Promise.reject()).then(() => showToast('Link copiado'), () => { prompt('Copie o link:', l); });
 }
-async function excluirTermo(id) {
-  if (!confirm('Excluir este termo? Só dá para excluir termos ainda não assinados.')) return;
-  try { await apiPost('excluirTermoVistoria', { id }); showToast('Termo excluído'); loadVistorias(true); } catch (e) { showToast('Erro: ' + e.message, 'error'); }
+async function excluirTermo(id, assinado) {
+  if (assinado) {
+    if (!confirm('Este termo JÁ FOI ASSINADO. Excluir apaga o registro assinado do painel (uma cópia fica guardada no histórico de exclusões da planilha). Deseja excluir mesmo assim?')) return;
+  } else if (!confirm('Excluir este termo?')) return;
+  try { await apiPost('excluirTermoVistoria', { id, confirmado_assinado: !!assinado }); showToast('Termo excluído'); loadVistorias(true); } catch (e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
 async function abrirNovoTermo() {
