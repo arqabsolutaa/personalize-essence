@@ -127,7 +127,8 @@ let travado = false;
 const pads = {};
 
 const esc = v => String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-const fotoUrl = (id, w) => 'https://lh3.googleusercontent.com/d/' + id + '=w' + (w || 400);
+const DEMO = params.get('demo') === '1';
+const fotoUrl = (id, w) => id === 'demo' ? 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90"><rect width="120" height="90" fill="#ddd"/><text x="60" y="50" font-size="12" text-anchor="middle" fill="#777">foto</text></svg>') : 'https://lh3.googleusercontent.com/d/' + id + '=w' + (w || 400);
 const fotoLink = id => 'https://drive.google.com/file/d/' + id + '/view';
 
 function jsonp(url) {
@@ -141,7 +142,13 @@ function jsonp(url) {
     document.head.appendChild(s);
   });
 }
+const DEMO_TERMO = { categoria: 'prestador', apto: '92', cliente: 'Nome do Cliente', modulo: 'Automação', titulo: 'Termo de Automação', prazo: '5 dias úteis, de 01/12/2026 a 05/12/2026', itens: [], intro: '', obs_geral: '', status: 'aberto', nome_cliente: '', nome_arquiteto: '', assinado_em: '', hash: '', assinatura_cliente: '', assinatura_arquiteto: '', empresa: '', documento: '', cnpj: '', telefone: '', doc_foto: '', doc_cnpj_foto: '', doc_nr_foto: '', texto: "TERMO DE RESPONSABILIDADE E CONDIÇÕES DE EXECUÇÃO\nSERVIÇOS DE AUTOMAÇÃO\n\nEste termo é firmado entre ABSOLUTA CONSTRUTORA E INCORPORADORA e o PRESTADOR identificado neste termo, para estabelecer as condições de acesso e execução dos serviços de automação no apartamento indicado, localizado no empreendimento Essence Residence.\n\n1. OBJETO E CONDIÇÕES DA CONTRATAÇÃO\n\n1.1. O Prestador executará os serviços de automação e infraestrutura correspondente no apartamento indicado, conforme o escopo e os valores acordados diretamente com o cliente, respeitando o projeto aprovado e as orientações da arquiteta responsável.\n\n1.2. A contratação, negociação de valores, pagamentos e demais condições comerciais são de responsabilidade exclusiva do cliente e do Prestador, não cabendo à Absoluta responsabilidade pelas obrigações comerciais assumidas entre as partes, sem prejuízo das responsabilidades legais próprias da construtora.\n\n2. ACESSO E CONDUTA NA OBRA\n\n2.1. O Prestador e sua equipe poderão acessar somente o apartamento indicado e os caminhos necessários até ele, nos dias e horários previamente autorizados pela Absoluta e pelo condomínio/obra.\n\n2.2. Todos os integrantes da equipe deverão estar previamente identificados, cadastrados e informados à Absoluta. Não será permitida a entrada de pessoas não autorizadas ou sem o devido registro.\n\n2.3. O Prestador deverá respeitar as regras de convivência, segurança e silêncio da obra, manter o local organizado e retirar, ao final de cada dia de trabalho, embalagens, sobras de materiais e resíduos gerados pela execução de seus serviços.\n\n3. SEGURANÇA E RESPONSABILIDADE DA EQUIPE\n\n3.1. O Prestador é responsável por sua equipe, devendo fornecer e exigir o uso adequado dos equipamentos de proteção individual (EPIs), bem como cumprir as normas de segurança aplicáveis, especialmente as relacionadas a serviços com eletricidade (NR-10) e trabalho em altura (NR-35), quando aplicáveis.\n\n3.2. Não haverá vínculo empregatício entre a Absoluta e o Prestador ou os integrantes de sua equipe. Salários, encargos trabalhistas, previdenciários, fiscais, seguros e demais obrigações relacionadas à equipe serão de responsabilidade do Prestador, conforme a legislação aplicável.\n\n3.3. O Prestador será responsável pelos acidentes, danos ou prejuízos decorrentes de atos ou omissões seus ou de sua equipe durante a execução dos serviços, observadas as responsabilidades legais de cada envolvido.\n\n4. RESPEITO ÀS DEMAIS ETAPAS DA OBRA\n\n4.1. O Prestador não poderá cortar, furar, remover ou alterar revestimentos, pedras, forros, pinturas, estruturas ou instalações de outras etapas sem autorização prévia da Absoluta. Todas as passagens e perfurações deverão respeitar as condições técnicas e estruturais do empreendimento.\n\n4.2. Qualquer interferência em instalações elétricas, hidráulicas ou demais infraestruturas existentes deverá ser previamente comunicada e autorizada pela Absoluta.\n\n4.3. O Prestador deverá proteger adequadamente as áreas já executadas ou acabadas, incluindo pisos, paredes, bancadas e esquadrias, evitando danos durante a realização dos serviços.\n\n5. DANOS E INSTALAÇÕES EXISTENTES\n\n5.1. O Prestador será responsável pelos danos causados por ele, por sua equipe ou por seus equipamentos ao imóvel, aos materiais instalados, a outros prestadores ou a terceiros. Deverá providenciar os reparos por sua conta, no prazo acordado com a Absoluta ou, quando não for possível, ressarcir os custos correspondentes de materiais e mão de obra.\n\n5.2. O Prestador não poderá utilizar, alterar ou interferir nos conduítes, cabeamentos e demais infraestruturas disponibilizados pela construtora para a passagem de seus sistemas, devendo prever caminhos independentes para a instalação de sua infraestrutura.\n\n5.3. Qualquer dano, rompimento ou alteração nas instalações originalmente entregues pela Absoluta, decorrente da execução dos serviços, será de responsabilidade do Prestador, podendo comprometer as garantias correspondentes.\n\n6. MATERIAIS E FERRAMENTAS\n\n6.1. Ferramentas, equipamentos e materiais de propriedade do Prestador permanecerão sob sua guarda e responsabilidade, não cabendo à Absoluta responsabilidade por perdas, furtos ou danos desses itens.\n\n6.2. A Absoluta não fornecerá ferramentas, equipamentos ou materiais necessários à execução dos serviços, sendo o fornecimento de todos os itens de responsabilidade exclusiva do Prestador.\n\n7. PRAZOS E CRONOGRAMA DA OBRA\n\n7.1. O Prestador deverá respeitar os prazos, etapas e condições estabelecidos pela Absoluta para a execução dos serviços, não podendo interferir ou comprometer o andamento das demais atividades da obra.\n\n7.2. Qualquer necessidade de retorno à unidade, alteração de cronograma ou execução de serviços complementares deverá ser previamente comunicada e autorizada pela Absoluta.\n\n8. CONDIÇÕES DE EXECUÇÃO E LIBERAÇÃO DE ACESSO\n\n8.1. A execução dos serviços estará condicionada à entrega prévia da documentação exigida pela Absoluta, ao preenchimento deste termo e à autorização formal de acesso à unidade.\n\n8.2. A assinatura deste documento não representa autorização automática para início dos serviços, sendo necessária a liberação expressa da Absoluta, conforme as condições e o cronograma da obra.\n\n9. PROTEÇÃO DE DADOS (LGPD)\n\n9.1. O Prestador declara que os dados e documentos fornecidos neste termo são verdadeiros e autoriza sua utilização pela Absoluta para fins de cadastro, controle de acesso à obra, segurança e registro das condições aqui estabelecidas, observadas as disposições da Lei Geral de Proteção de Dados (Lei nº 13.709/2018).\n\n10. DISPOSIÇÕES GERAIS\n\n10.1. O descumprimento das condições estabelecidas neste termo poderá resultar na suspensão das atividades e no impedimento de acesso do Prestador à obra, até que as irregularidades sejam devidamente corrigidas.\n\n10.2. O Prestador declara ter lido, compreendido e estar de acordo com todas as condições estabelecidas neste documento, comprometendo-se a cumpri-las integralmente." };
 async function post(action, dados) {
+  if (DEMO) {
+    if (action === 'uploadFotoTermoVistoria') return { fileId: 'demo', fotos: ['demo'] };
+    if (action === 'assinarTermoVistoria') Object.assign(DEMO_TERMO, { status: 'aguardando_absoluta', nome_cliente: dados.nome_cliente, documento: dados.documento, cnpj: dados.cnpj, empresa: dados.empresa, telefone: dados.telefone, assinatura_cliente: dados.assinatura_cliente });
+    return { ok: true };
+  }
   const r = await fetch(SCRIPT_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action, dados, usuario: 'Termo público' }) });
   const j = await r.json();
   if (j.error) throw new Error(j.error);
@@ -149,11 +156,15 @@ async function post(action, dados) {
 }
 
 async function carregar() {
-  if (!TOKEN) { document.getElementById('app').innerHTML = '<div class="center">Link inválido.</div>'; return; }
+  if (DEMO) document.title = 'DEMONSTRAÇÃO · Termo de Automação';
+  if (DEMO && !document.getElementById('demo-faixa')) { const f = document.createElement('div'); f.id = 'demo-faixa'; f.textContent = 'DEMONSTRAÇÃO · nada é enviado nem salvo'; f.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99;background:#b26a00;color:#fff;font:600 11px Inter,sans-serif;letter-spacing:1px;text-align:center;padding:3px;text-transform:uppercase'; document.body.appendChild(f); }
+  if (!TOKEN && !DEMO) { document.getElementById('app').innerHTML = '<div class="center">Link inválido.</div>'; return; }
   try {
+    if (DEMO) { termo = DEMO_TERMO; }
+    else {
     const r = await jsonp(SCRIPT_URL + '?action=getTermoVistoriaPublico&token=' + encodeURIComponent(TOKEN));
     if (r.error) throw new Error(r.error);
-    termo = r.data;
+    termo = r.data; }
     const prest = termo.categoria === 'prestador';
     travado = prest ? termo.status !== 'aberto' : termo.status === 'assinado';
     document.getElementById('titulo').textContent = termo.titulo || 'Termo de Conferência';
@@ -425,6 +436,9 @@ function _maskTel(v) {
   if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
   return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
 }
+function _servicoHtml() {
+  return `<div class="card" style="margin-top:14px;font-size:14px;line-height:1.8"><strong>Apartamento:</strong> ${esc(termo.apto)}${termo.cliente ? ' · ' + esc(termo.cliente) : ''}<br><strong>Serviço:</strong> ${esc(termo.titulo.replace(/^Termo de /, ''))}<br><strong>Prazo de execução:</strong> ${esc(termo.prazo || 'a combinar')}</div>`;
+}
 function _statusPrestBanner() {
   if (termo.status === 'assinado') return `<div class="assinado-banner"><strong>✓ Termo assinado pelas duas partes</strong> em ${esc(termo.assinado_em)}<br>Código de verificação: <strong>${esc(termo.hash)}</strong></div>`;
   return `<div class="assinado-banner" style="background:var(--warn-bg);color:var(--warn)"><strong>✓ Sua assinatura foi enviada.</strong><br>O termo será válido quando a Absoluta assinar também. Você pode baixar a cópia quando estiver completo.</div>`;
@@ -438,7 +452,7 @@ function renderPrestador() {
   if (travado) {
     document.body.classList.remove('wiz');
     let h = _statusPrestBanner();
-    h += `<h2>Termo</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>
+    h += `${_servicoHtml()}<h2>Termo</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>
       <h2>Dados do prestador</h2><div class="card" style="margin-top:8px;font-size:14px;line-height:1.8">
       <strong>Nome:</strong> ${esc(termo.nome_cliente)}<br><strong>CPF:</strong> ${esc(termo.documento)}<br>${termo.cnpj ? `<strong>CNPJ:</strong> ${esc(termo.cnpj)}<br>` : ''}<strong>Empresa:</strong> ${esc(termo.empresa)}<br><strong>Telefone:</strong> ${esc(termo.telefone)}</div>
       <h2>Assinaturas</h2><div class="card" style="margin-top:8px">
@@ -484,7 +498,7 @@ function desenharP() {
       <div class="erro-passo" id="erro-passo"></div>`;
     nav = `<button class="btn" onclick="voltarP()">Voltar</button><button class="btn primary" onclick="proxP()">Próximo</button>`;
   } else if (q === 'termo') {
-    corpo = `<div class="q-num">Etapa 3 de 4</div><p class="leia">Leia com atenção</p><div class="card"><div class="capa-txt">${esc(termo.texto)}</div></div>
+    corpo = `<div class="q-num">Etapa 3 de 4</div><p class="leia">Leia com atenção</p>${_servicoHtml()}<div class="card"><div class="capa-txt">${esc(termo.texto)}</div></div>
       <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;margin-top:18px"><input type="checkbox" id="p-aceite" style="margin-top:3px;width:18px;height:18px" ${PF.aceite ? 'checked' : ''}><span>Li o termo acima e concordo com todas as condições.</span></label>
       <div class="erro-passo" id="erro-passo"></div>`;
     nav = `<button class="btn" onclick="voltarP()">Voltar</button><button class="btn primary" onclick="proxP()">Próximo</button>`;
@@ -570,7 +584,8 @@ async function baixarPdfPrestador() {
     doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(28, 26, 21);
     const tl = doc.splitTextToSize(termo.titulo || 'Termo', 186); doc.text(tl, 12, y); y += tl.length * 7;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(90, 86, 72);
-    doc.text('Essence Residence · Apartamento ' + termo.apto + (termo.cliente ? ' · ' + termo.cliente : ''), 12, y); y += 10;
+    doc.text('Essence Residence · Apartamento ' + termo.apto + (termo.cliente ? ' · ' + termo.cliente : ''), 12, y); y += 5.5;
+    doc.text('Prazo de execução: ' + (termo.prazo || 'a combinar'), 12, y); y += 10;
     doc.setFontSize(10); doc.setTextColor(28, 26, 21);
     for (const ln of doc.splitTextToSize(termo.texto || '', 186)) { nova(6); doc.text(ln, 12, y); y += 5.2; }
     y += 6; nova(46);

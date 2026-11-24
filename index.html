@@ -4320,6 +4320,8 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
         <input id="nt-titulo" class="filter-input" style="width:100%;margin-bottom:12px">
         <div id="nt-bloco-intro"><label style="font-size:12px;color:var(--text3)">Explicação do termo (1ª página, logo depois da capa: o que é este termo e como preencher)</label>
         <textarea id="nt-intro" class="filter-input" rows="4" style="width:100%;font-family:inherit;margin-bottom:12px"></textarea></div>
+        <div id="nt-bloco-prazo" style="display:none"><label style="font-size:12px;color:var(--text3)">Prazo de execução do serviço (o prestador informa e você preenche aqui)</label>
+        <input id="nt-prazo" class="filter-input" style="width:100%;margin-bottom:12px" placeholder="Ex.: 5 dias úteis, de 01/12/2026 a 05/12/2026"></div>
         <label style="font-size:12px;color:var(--text3)" id="nt-lbl-texto">Declaração (aparece no final, antes da assinatura, e no PDF)</label>
         <textarea id="nt-texto" class="filter-input" rows="4" style="width:100%;font-family:inherit;margin-bottom:12px"></textarea>
         <div id="nt-bloco-itens"><label style="font-size:12px;color:var(--text3)">Checklist (opcional — um item por linha; deixe vazio se o termo for só texto + assinaturas)</label>
@@ -7387,6 +7389,7 @@ function _cardTermoPrest(t) {
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:700;font-size:15px">Apto ${escHtml(t.apto)}</div><div style="font-size:12px;color:var(--text3)">${escHtml(t.cliente || '—')}</div></div>${badge}</div>
     <div style="margin-top:10px;font-size:14px;font-weight:600">${escHtml(t.titulo)}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:4px">Prestador: ${quem}</div>
+    ${t.prazo ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">Prazo: ${escHtml(t.prazo)}</div>` : ''}
     ${t.telefone ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">${escHtml(t.telefone)}${t.documento ? ' · CPF ' + escHtml(t.documento) : ''}${t.cnpj ? ' · CNPJ ' + escHtml(t.cnpj) : ''}</div>` : ''}
     <div style="font-size:12px;color:var(--text3);margin-top:2px">${ass ? 'Assinado em ' + escHtml(t.assinado_em) : 'Criado em ' + escHtml(t.criado_em)}</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">
@@ -7463,6 +7466,7 @@ async function abrirNovoTermo() {
   document.getElementById('nt-bloco-intro').style.display = document.getElementById('nt-bloco-itens').style.display = _vistCat === 'prestador' ? 'none' : '';
   document.getElementById('nt-lbl-texto').textContent = _vistCat === 'prestador' ? 'Texto do termo (o prestador lê tudo antes de assinar)' : 'Declaração (aparece no final, antes da assinatura, e no PDF)';
   document.getElementById('nt-texto').rows = _vistCat === 'prestador' ? 14 : 4;
+  document.getElementById('nt-bloco-prazo').style.display = _vistCat === 'prestador' ? '' : 'none'; document.getElementById('nt-prazo').value = '';
   document.getElementById('nt-pronto-txt').textContent = _vistCat === 'prestador' ? 'Termo criado. Envie este link ao prestador: ele lê, preenche os dados, anexa o documento e assina no celular. Depois você assina como Absoluta aqui no painel.' : 'Termo criado. Envie este link ao cliente e ao arquiteto — eles abrem no celular, conferem os itens e assinam na tela.';
   ntTrocouTipo();
   document.getElementById('nt-form').style.display = 'block'; document.getElementById('nt-pronto').style.display = 'none';
@@ -7482,9 +7486,10 @@ async function criarNovoTermo() {
   const apto = document.getElementById('nt-apto').value;
   if (!apto) return showToast('Escolha o apartamento', 'error');
   const itens = document.getElementById('nt-itens').value.split('\n').map(x => x.trim()).filter(Boolean);
+  if (_vistCat === 'prestador' && !document.getElementById('nt-prazo').value.trim()) return showToast('Informe o prazo de execução', 'error');
   const b = document.getElementById('nt-btn-criar'); b.disabled = true; b.textContent = 'Criando…';
   try {
-    const r = await _enviarComprovante('criarTermoVistoria', { apto, cliente: _clienteDoAp(apto), modulo: document.getElementById('nt-modulo').value, categoria: _vistCat, titulo: document.getElementById('nt-titulo').value, texto: document.getElementById('nt-texto').value, intro: document.getElementById('nt-intro').value, itens });
+    const r = await _enviarComprovante('criarTermoVistoria', { apto, cliente: _clienteDoAp(apto), modulo: document.getElementById('nt-modulo').value, categoria: _vistCat, prazo: document.getElementById('nt-prazo').value, titulo: document.getElementById('nt-titulo').value, texto: document.getElementById('nt-texto').value, intro: document.getElementById('nt-intro').value, itens });
     _ntToken = r.token;
     document.getElementById('nt-link').value = _linkTermo(r.token);
     document.getElementById('nt-form').style.display = 'none'; document.getElementById('nt-pronto').style.display = 'block';
