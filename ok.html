@@ -112,6 +112,20 @@
   .info-strip small { display: block; font-size: 8px; letter-spacing: 3px; color: #787670; text-transform: uppercase; margin-bottom: 4px; }
   .info-strip b { display: block; font-size: 13px; color: #0e0e0e; line-height: 1.25; overflow-wrap: anywhere; }
   @media (max-width: 560px) { .info-strip { grid-template-columns: 1fr 1fr; } .info-strip div:nth-child(3) { border-left: none; } .info-strip div:nth-child(n+3) { border-top: 1px solid #8c8467; } }
+  /* termo de prestador: preto e branco, só a capa é verde */
+  body.prest { --bg:#fff; --surface:#fff; --text:#111; --text2:#444; --text3:#777; --border:#ddd; --marrom:#111; --dourado:#777; --ok:#111; --ok-bg:#f2f2f2; --warn:#111; --warn-bg:#f2f2f2; }
+  body.prest .topo-wiz { background:#fff; border-bottom:1px solid #ddd; }
+  body.prest .topo-wiz .lin { color:#555; }
+  body.prest .topo-wiz .barra { background:#e6e6e6; }
+  body.prest .topo-wiz .barra i { background:#111; }
+  body.prest .info-strip { background:#f5f5f5; border-bottom:2px solid #111; }
+  body.prest .info-strip div { border-left-color:#bbb; }
+  body.prest .info-strip small { color:#777; }
+  body.prest .q-num { color:#111; }
+  body.prest .leia { color:#111; font-weight:600; }
+  body.prest .btn.primary { background:#111; border-color:#111; color:#fff; }
+  body.prest .sig canvas { border-color:#777; }
+  body.prest #demo-faixa { background:#111 !important; }
   .center { text-align: center; padding: 60px 20px; color: var(--text2); }
 </style>
 </head>
@@ -173,6 +187,7 @@ async function carregar() {
     if (r.error) throw new Error(r.error);
     termo = r.data; }
     const prest = termo.categoria === 'prestador';
+    if (prest) { document.body.classList.add('prest'); document.documentElement.setAttribute('data-theme', 'light'); }
     travado = prest ? termo.status !== 'aberto' : termo.status === 'assinado';
     document.getElementById('titulo').textContent = termo.titulo || 'Termo de Conferência';
     document.getElementById('sub').textContent = 'Apto ' + termo.apto + (termo.cliente ? ' · ' + termo.cliente : '');
@@ -588,21 +603,21 @@ async function baixarPdfPrestador() {
   try {
     const J = window.jspdf && window.jspdf.jsPDF; if (!J) throw new Error('Biblioteca de PDF não carregou');
     const doc = new J(); const W = 210; let y = 0;
-    const marrom = [34, 58, 44], dourado = [176, 138, 90];
+    const marrom = [17, 17, 17], dourado = [119, 119, 119];
     const cab = () => { doc.setFillColor(...marrom); doc.rect(0, 0, W, 18, 'F'); doc.setTextColor(238, 240, 228); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ABSOLUTA', 12, 11.5, { charSpace: 1.5 });
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text((termo.titulo || 'Termo') + '  ·  Apto ' + termo.apto, W - 12, 11.5, { align: 'right' }); };
     const nova = h => { if (y + h > 282) { doc.addPage(); cab(); y = 28; } };
     const banner = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = 'assets/capa_civil_ac.png'; });
     if (banner) { const c = document.createElement('canvas'); c.width = 2000; c.height = 457; c.getContext('2d').drawImage(banner, 0, 0, 2000, 457); try { doc.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 48); } catch (e) {} }
-    else { doc.setFillColor(...marrom); doc.rect(0, 0, W, 48, 'F'); }
-    doc.setFillColor(240, 238, 232); doc.rect(0, 50, W, 32, 'F'); doc.setDrawColor(140, 132, 103); doc.setLineWidth(0.3);
+    else { doc.setFillColor(34, 58, 44); doc.rect(0, 0, W, 48, 'F'); }
+    doc.setFillColor(245, 245, 245); doc.rect(0, 50, W, 32, 'F'); doc.setDrawColor(17, 17, 17); doc.setLineWidth(0.3);
     [62, 105, 150].forEach(x => doc.line(x, 56, x, 76));
     doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(120, 118, 112);
     ['C L I E N T E', 'U N I D A D E', 'S E R V I Ç O', 'P R A Z O'].forEach((l, i) => doc.text(l, [8, 67, 110, 155][i], 62));
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(14, 14, 14);
     doc.text(String(termo.cliente || '—').slice(0, 24), 8, 73); doc.text('Apto ' + termo.apto, 67, 73); doc.text(String(termo.titulo || '').replace(/^Termo de /, '').slice(0, 22), 110, 73);
     doc.text(doc.splitTextToSize(String(termo.prazo || 'a combinar'), 50).slice(0, 2), 155, 70);
-    doc.setDrawColor(140, 132, 103); doc.setLineWidth(0.8); doc.line(0, 82, W, 82);
+    doc.setDrawColor(17, 17, 17); doc.setLineWidth(0.8); doc.line(0, 82, W, 82);
     y = 94;
     doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(28, 26, 21);
     const tl = doc.splitTextToSize(termo.titulo || 'Termo', 186); doc.text(tl, 12, y); y += tl.length * 7 + 3;
