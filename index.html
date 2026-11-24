@@ -2944,6 +2944,10 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="8" rx="2"/><path d="M6 17v2M10 17v2M14 17v2M18 17v2"/></svg>
       Ar-Condicionado
     </button>
+    <button class="nav-btn" onclick="showScreen('calccartao')" id="nav-calccartao">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+      Calculadora de cartão
+    </button>
     </div>
     <div id="nav-group-controle" style="display:none">
     <div class="side-area">Obra</div>
@@ -3841,6 +3845,25 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
   <div class="page-content">
     <div id="civil-lista" style="display:flex;flex-direction:column;gap:12px">
       <div class="empty-state"><strong>Carregando...</strong></div>
+    </div>
+  </div>
+</div>
+
+<div id="calccartao-screen" class="screen" style="display:none">
+  <div class="page-header">
+    <div class="page-header-left">
+      <h1>Calculadora de cartão</h1>
+      <p>Digite o valor combinado e escolha a forma de pagamento na maquininha: o sistema mostra quanto o cliente paga</p>
+    </div>
+  </div>
+  <div class="page-content">
+    <div style="max-width:760px">
+      <label style="font-size:12px;color:var(--text3)">Valor combinado (R$)</label>
+      <input id="cc-valor" type="number" step="0.01" min="0" inputmode="decimal" placeholder="0,00" oninput="ccAtualizar()" style="width:100%;font-size:26px;font-weight:700;padding:14px 16px;border:1.5px solid var(--border);border-radius:12px;background:var(--surface);color:var(--text);margin:6px 0 16px">
+      <div id="cc-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px"></div>
+      <div id="cc-resultado" style="border:1.5px solid var(--text);border-radius:14px;padding:18px 20px;margin-bottom:18px;background:var(--surface)"></div>
+      <div id="cc-tabela"></div>
+      <p style="font-size:12px;color:var(--text3);margin-top:12px">As taxas são as da tabela da maquininha. O acréscimo é somado ao valor combinado (o cliente paga o valor + a taxa).</p>
     </div>
   </div>
 </div>
@@ -5775,6 +5798,38 @@ const TAXAS_MAQUININHA = {
   credito7: 0.0651, credito8: 0.0699, credito9: 0.0751, credito10: 0.0799, credito11: 0.0849, credito12: 0.0899
 };
 
+// ===== Calculadora de cartão =====
+let _ccSel = 'credito1';
+const _ccFmt = v => 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const _ccOpcoes = () => [{ k: 'avista', n: 'À vista / PIX' }, { k: 'debito', n: 'Débito' }].concat(Array.from({ length: 12 }, (_, i) => ({ k: 'credito' + (i + 1), n: i === 0 ? 'Crédito à vista' : 'Crédito ' + (i + 1) + 'x' })));
+function ccIniciar() {
+  document.getElementById('cc-chips').innerHTML = _ccOpcoes().map(o => `<button type="button" class="btn btn-secondary" data-k="${o.k}" onclick="ccEscolher('${o.k}')" style="padding:8px 14px;font-size:13px">${o.k === 'avista' ? 'PIX' : o.k === 'debito' ? 'Débito' : o.k === 'credito1' ? '1x' : o.k.replace('credito', '') + 'x'}</button>`).join('');
+  ccAtualizar();
+  setTimeout(() => { const e = document.getElementById('cc-valor'); if (e) e.focus(); }, 50);
+}
+function ccEscolher(k) { _ccSel = k; ccAtualizar(); }
+function ccTexto(valor, k) {
+  const r = calcularTotalComPagamento(valor, k), o = _ccOpcoes().find(x => x.k === k);
+  return r.parcelas > 1 ? `${o.n}: ${r.parcelas}x de ${_ccFmt(r.parcela)} (total ${_ccFmt(r.total)})` : `${o.n}: ${_ccFmt(r.total)}`;
+}
+function ccAtualizar() {
+  const valor = parseFloat(document.getElementById('cc-valor').value) || 0;
+  document.querySelectorAll('#cc-chips button').forEach(b => { const on = b.dataset.k === _ccSel; b.className = 'btn ' + (on ? 'btn-primary' : 'btn-secondary'); });
+  const o = _ccOpcoes().find(x => x.k === _ccSel), r = calcularTotalComPagamento(valor, _ccSel);
+  const res = document.getElementById('cc-resultado');
+  if (!valor) { res.innerHTML = '<div style="color:var(--text3)">Digite o valor combinado para ver quanto o cliente paga.</div>'; }
+  else res.innerHTML = `<div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px">${o.n}</div>
+    ${r.parcelas > 1 ? `<div style="font-size:30px;font-weight:700;margin-top:4px">${r.parcelas}x de ${_ccFmt(r.parcela)}</div><div style="font-size:14px;color:var(--text2);margin-top:2px">Total ${_ccFmt(r.total)}${r.juros > 0.005 ? ' · acréscimo ' + _ccFmt(r.juros) : ''}</div>` : `<div style="font-size:30px;font-weight:700;margin-top:4px">${_ccFmt(r.total)}</div><div style="font-size:14px;color:var(--text2);margin-top:2px">${r.juros > 0.005 ? 'Acréscimo ' + _ccFmt(r.juros) : 'Sem acréscimo'}</div>`}
+    <button class="btn btn-secondary" style="margin-top:12px" onclick="ccCopiar()">Copiar para enviar ao cliente</button>`;
+  document.getElementById('cc-tabela').innerHTML = valor ? `<table style="width:100%;border-collapse:collapse;font-size:14px"><thead><tr style="text-align:left;color:var(--text3);font-size:12px"><th style="padding:8px 6px">Condição</th><th style="padding:8px 6px">Taxa</th><th style="padding:8px 6px;text-align:right">Parcela</th><th style="padding:8px 6px;text-align:right">Total</th></tr></thead><tbody>` +
+    _ccOpcoes().map(x => { const q = calcularTotalComPagamento(valor, x.k), taxa = (TAXAS_MAQUININHA[x.k] || 0) * 100; return `<tr onclick="ccEscolher('${x.k}')" style="cursor:pointer;border-top:1px solid var(--border);${x.k === _ccSel ? 'background:var(--surface2);font-weight:700' : ''}"><td style="padding:9px 6px">${x.n}</td><td style="padding:9px 6px">${taxa ? taxa.toFixed(2).replace('.', ',') + '%' : '—'}</td><td style="padding:9px 6px;text-align:right">${q.parcelas > 1 ? q.parcelas + 'x ' + _ccFmt(q.parcela) : '—'}</td><td style="padding:9px 6px;text-align:right">${_ccFmt(q.total)}</td></tr>`; }).join('') + '</tbody></table>' : '';
+}
+function ccCopiar() {
+  const valor = parseFloat(document.getElementById('cc-valor').value) || 0; if (!valor) return;
+  const t = 'Valor combinado: ' + _ccFmt(valor) + '\n' + ccTexto(valor, _ccSel);
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => showToast('Copiado'), () => prompt('Copie:', t));
+}
+
 function calcularTotalComPagamento(totalValor, tipo) {
   if (!tipo || tipo === 'avista' || tipo === 'pix') return { total: totalValor, parcelas: 1, juros: 0 };
   if (tipo === 'debito') {
@@ -7117,6 +7172,7 @@ function showScreen(name) {
   try { document.getElementById('nav-' + name).classList.add('active'); } catch(e) {}
   localStorage.setItem('last_screen', name);
   if (name === 'ctrlvisao' || name === 'ctrlpagto') ctrlCarregar();
+  if (name === 'calccartao') ccIniciar();
   if (name === 'estoque') loadEstoque();
   if (name === 'necessidadecompra') loadNecessidadeCompra();
   if (name === 'saidas') loadSaidas();
@@ -15892,6 +15948,10 @@ async function gerarPDFInstalacoesApto(ap) {
   <button class="mobile-nav-btn" style="flex-direction:row;justify-content:flex-start;gap:12px;width:100%;padding:12px 16px;font-size:11px" onclick="showScreen('metais');setMobileNav('metais');toggleMobileMenu()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18"><path d="M18 6 7 17l-5-5"/><path d="M22 10 12 20l-2-2"/></svg>
     Metais
+  </button>
+  <button class="mobile-nav-btn" style="flex-direction:row;justify-content:flex-start;gap:12px;width:100%;padding:12px 16px;font-size:11px" onclick="showScreen('calccartao');setMobileNav('calccartao');toggleMobileMenu()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+    Calculadora de cartão
   </button>
   <button class="mobile-nav-btn" id="mobile-nav-config" style="flex-direction:row;justify-content:flex-start;gap:12px;width:100%;padding:12px 16px;font-size:11px" onclick="showScreen('config');setMobileNav('config');toggleMobileMenu()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="18" height="18"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
