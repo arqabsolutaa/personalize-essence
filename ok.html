@@ -667,7 +667,9 @@ function irParaItem(id) { const k = passos.findIndex(q => q.t === 'item' && term
 function respondido(it) { return it.status === 'ok' || (it.status === 'ressalva' && (String(it.obs || '').trim() || (it.fotos || []).length > 0)); }
 function fotosHtml(it) { return (it.fotos || []).map(id => `<a href="${fotoLink(id)}" target="_blank" rel="noopener"><img src="${fotoUrl(id, 300)}" alt="Foto"></a>`).join(''); }
 // parte de baixo da pergunta: aparece quando a resposta é "Não" (ou se a pessoa quiser acrescentar algo ao "Sim")
+function semExtras() { return termo.categoria !== 'prestador' && termo.modulo === 'Revestimentos'; }
 function extraHtml(it) {
+  if (semExtras() && it.status !== 'ressalva') return '';
   const aberto = it.status === 'ressalva' || window._extraAberto === it.id || String(it.obs || '').trim() || (it.fotos || []).length;
   if (it.status === 'ok' && !aberto) return `<button class="extra-add" onclick="window._extraAberto='${it.id}';document.getElementById('extra-${it.id}').innerHTML=extraHtml(termo.itens.find(x=>x.id==='${it.id}'))">＋ Adicionar foto ou comentário</button>`;
   if (!it.status) return '';
@@ -717,7 +719,7 @@ function desenhar() {
   } else {
     corpo = `<div class="q-num">Última etapa</div><h2 class="q-txt">Revisão e assinatura</h2>
       ${termo.itens.length ? `<div class="card" style="padding:4px 16px">${termo.itens.map((it, i) => `<div class="resumo-lin" onclick="irParaItem('${it.id}')"><span><span style="color:var(--text3)">${i + 1}.</span> ${esc(it.texto)}</span><span class="badge ${it.status === 'ok' ? 'ok' : 'res'}">${it.status === 'ok' ? 'Sim' : it.status === 'ressalva' ? 'Não' : '—'}</span></div>`).join('')}</div>` : ''}
-      <h2>Observações gerais</h2><div class="card" style="margin-top:8px"><textarea id="obs-geral" placeholder="Algo mais que queira registrar (opcional)" style="margin-top:0">${esc(termo.obs_geral)}</textarea></div>
+      ${semExtras() ? '<textarea id="obs-geral" style="display:none"></textarea>' : `<h2>Observações gerais</h2><div class="card" style="margin-top:8px"><textarea id="obs-geral" placeholder="Algo mais que queira registrar (opcional)" style="margin-top:0">${esc(termo.obs_geral)}</textarea></div>`}
       ${termo.texto ? `<h2>Declaração</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>` : ''}
       <h2>Assinatura</h2>
       <div class="card" style="margin-top:8px">
