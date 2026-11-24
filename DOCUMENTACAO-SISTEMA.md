@@ -17,7 +17,7 @@
 - **Backend**: `Code.gs` — Google Apps Script, publicado como Web App. Bárbara cola manualmente no editor do Apps Script e reimplanta (Implantar → Gerenciar implantações → Editar → Nova versão → Implantar) sempre que o backend muda.
 - **Banco de dados**: Google Sheets. O `Code.gs` expõe `doGet(e)` como dispatcher de ações (`action` no parâmetro `p`), lendo/gravando nas abas da planilha.
 - **Sincronização de leitura**: depois de qualquer escrita, `Code.gs` roda `atualizarGithub()`, que regenera um arquivo `data.json` no repositório GitHub — esse arquivo é usado como cache rápido de leitura pelo frontend (evita chamadas JSONP lentas o tempo todo).
-- **Repositório**: `arqabsolutaa/revestimentos-dashboard` (GitHub). Site publicado em `https://arqabsolutaa.github.io/revestimentos-dashboard/`.
+- **Repositório**: `arqabsolutaa/personalize-essence` (GitHub). Site publicado em `https://arqabsolutaa.github.io/personalize-essence/`.
 - **Planilha Google Sheets ID**: `1flPYLA-cceH5D94pKN9PieN3tKsj2YCqClRQDvxQVY0`.
 
 ### Fluxo de deploy — MUITO IMPORTANTE
@@ -32,7 +32,7 @@ Sempre que uma mudança envolve os dois lados, isso deve ser dito explicitamente
 
 - O Claude precisa de acesso de **push** ao repositório para subir o `index.html` diretamente.
 - Esse acesso é feito via **GitHub App do Claude**, vinculado à conta do GitHub da Bárbara (não é mais feito com token colado à mão — o ambiente de execução do Claude bloqueia isso por segurança).
-- Se numa conversa nova o Claude não conseguir dar push, o caminho é: Configurações do Claude (claude.ai) → Connectors → GitHub → conferir se "Instalar o Claude GitHub App" está feito e autorizado para o repositório `revestimentos-dashboard`.
+- Se numa conversa nova o Claude não conseguir dar push, o caminho é: Configurações do Claude (claude.ai) → Connectors → GitHub → conferir se "Instalar o Claude GitHub App" está feito e autorizado para o repositório `personalize-essence`.
 - Isso só precisa ser refeito se a autorização expirar ou for removida — não é algo rotineiro.
 
 ## 4. Áreas do dashboard (navegação principal)

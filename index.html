@@ -1556,7 +1556,7 @@ const ESSENCE_PALETAS = {
   },
 };
 const ESSENCE_CORES = ESSENCE_PALETAS.vinilico; // fallback
-const ESSENCE_ASSETS = 'https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/assets/';
+const ESSENCE_ASSETS = 'https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/assets/';
 
 // Carrega imagem de URL e retorna base64 para jsPDF (com timeout de 5s)
 async function carregarImagemPDF(url, timeoutMs) {
@@ -7230,7 +7230,7 @@ async function lerDados(forcarFresco) {
   if (!direto) {
     try {
       const baseUrl = window.location.hostname === 'arqabsolutaa.github.io'
-        ? 'https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/data.json'
+        ? 'https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/data.json'
         : '/data.json';
       const r = await fetch(baseUrl + '?t=' + Date.now());
       if (r.ok) { const j = await r.json(); if (Array.isArray(j.reservasTecnicas)) dadosReservas = j.reservasTecnicas; if (Array.isArray(j.comprasManuais)) dadosComprasManuais = j.comprasManuais; return j; }
@@ -7557,7 +7557,7 @@ async function baixarDocumentacaoTecnica() {
   const el = document.getElementById('doc-tecnica-result');
   el.textContent = 'Buscando versão mais recente...';
   el.style.color = 'var(--text3)';
-  const url = 'https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/DOCUMENTACAO-SISTEMA.md?t=' + Date.now();
+  const url = 'https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/DOCUMENTACAO-SISTEMA.md?t=' + Date.now();
   try {
     const resp = await fetch(url);
     if (!resp.ok) throw new Error('Documento não encontrado (HTTP ' + resp.status + ')');
@@ -7667,8 +7667,8 @@ function setVagasDepTab(tab) {
 
 // ===================== MAPA VISUAL (plantas dos subsolos) =====================
 const URLS_PLANTA = {
-  '2 subsolo': 'https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/assets/planta_2_subsolo.jpg',
-  '1 subsolo': 'https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/assets/planta_1_subsolo.jpg'
+  '2 subsolo': 'https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/assets/planta_2_subsolo.jpg',
+  '1 subsolo': 'https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/assets/planta_1_subsolo.jpg'
 };
 function _urlPlanta(subsolo) {
   const s = String(subsolo || '');
@@ -8756,7 +8756,7 @@ async function gerarPDFRelatorioConta(contaKey) {
     // CAPA CHEIA (fundo verde da marca) — sem nenhum texto escrito em cima
     let capaData = null;
     try {
-      capaData = await carregarImagemPDF('https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/assets/capa_relatorio_contas_essence.jpg', 15000);
+      capaData = await carregarImagemPDF('https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/assets/capa_relatorio_contas_essence.jpg', 15000);
     } catch(e) {}
     if (capaData) doc.addImage(capaData, 'JPEG', 0, 0, W, 297, undefined, 'NONE');
 
@@ -10491,7 +10491,7 @@ async function gerarPDFVagasDep(ap) {
 
   showToast('Gerando PDF...', 'success');
 
-  const logoUrl = 'https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/logo_18.png';
+  const logoUrl = 'https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/logo_18.png';
   let logoData = null;
   try { logoData = await carregarImagemPDF(logoUrl); } catch(e) {}
 
@@ -10520,7 +10520,7 @@ async function gerarPDFVagasDep(ap) {
     // CAPA CHEIA (fundo verde da marca) — texto em tom claro pra contrastar
     let capaData = null;
     try {
-      capaData = await carregarImagemPDF('https://raw.githubusercontent.com/arqabsolutaa/revestimentos-dashboard/main/assets/capa_comprovante_vagas_essence.jpg', 15000);
+      capaData = await carregarImagemPDF('https://raw.githubusercontent.com/arqabsolutaa/personalize-essence/main/assets/capa_comprovante_vagas_essence.jpg', 15000);
     } catch(e) {}
     if (capaData) doc.addImage(capaData, 'JPEG', 0, 0, W, 297, undefined, 'NONE');
 
