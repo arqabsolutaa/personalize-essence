@@ -146,6 +146,7 @@ function renderVinilico() {
           <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
             <span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;background:${statusCor}22;color:${statusCor}">${statusLabel}</span>
             <button class="btn btn-secondary" onclick="gerarPDFVinilicoId('${p.id}')" style="font-size:11px;padding:4px 10px">Gerar PDF</button>
+        <button class="btn btn-secondary" onclick="abrirOutraCondModulo('vinilico','${p.id}')" style="font-size:11px;padding:4px 10px">Outra condição</button>
           </div>
         </div>
       </div>
@@ -603,6 +604,7 @@ function renderMarmoraria() {
       </div>
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="gerarPDFMarmorariaId('${p.id}')" style="font-size:11px;padding:4px 10px">Gerar PDF</button>
+        <button class="btn btn-secondary" onclick="abrirOutraCondModulo('marmoraria','${p.id}')" style="font-size:11px;padding:4px 10px">Outra condição</button>
         <button class="btn btn-secondary" onclick="editarMarmoraria('${p.id}')" style="font-size:11px;padding:4px 10px">✏️ Editar</button>
       </div>
     </div>`;
@@ -991,6 +993,7 @@ function renderBanheiras() {
       <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="editarBanheira('${p.id}')" style="font-size:11px;padding:4px 10px">✏️ Editar</button>
         <button class="btn btn-secondary" onclick="gerarPDFBanheiraId('${p.id}')" style="font-size:11px;padding:4px 10px">Gerar PDF</button>
+        <button class="btn btn-secondary" onclick="abrirOutraCondModulo('banheiras','${p.id}')" style="font-size:11px;padding:4px 10px">Outra condição</button>
         ${_confRenderBotao('banheira', p.id)}
       </div>
       </div>
@@ -1957,13 +1960,13 @@ function gerarPDFVinilico() {
   const cliente = {cliente:_clienteDoAp(vinApAtual)}.cliente || '—';
   _gerarPDFVinilicoInterno(vinApAtual, cliente, vinSelecoes);
 }
-function gerarPDFVinilicoId(id) {
+function gerarPDFVinilicoId(id, pagamento) {
   const p = dadosVinilico.find(x => x.id === id);
   if (!p) { showToast('Orçamento não encontrado', 'error'); return; }
   const selecoes = typeof p.selecoes === 'string' ? JSON.parse(p.selecoes||'{}') : (p.selecoes||{});
-  _gerarPDFVinilicoInterno(p.ap, p.cliente, selecoes);
+  _gerarPDFVinilicoInterno(p.ap, p.cliente, selecoes, pagamento);
 }
-async function _gerarPDFVinilicoInterno(ap, cliente, selecoes) {
+async function _gerarPDFVinilicoInterno(ap, cliente, selecoes, pagamento) {
   const ESSENCE_CORES = ESSENCE_PALETAS.vinilico;
   const jsPDF = getJsPDF();
   if (!jsPDF) { showToast('jsPDF não carregado', 'error'); return; }
@@ -2007,7 +2010,8 @@ async function _gerarPDFVinilicoInterno(ap, cliente, selecoes) {
     alt=!alt; y+=20;
   }
   y += 6;
-  _pdfTotal(doc, y, totalM2, totalValor, 'Apto '+ap, ESSENCE_CORES);
+  const _pgV = pagamento ? _pgtoPdfInfo(totalValor, pagamento) : null;
+  _pdfTotal(doc, y, totalM2, _pgV ? _pgV.total : totalValor, 'Apto '+ap, ESSENCE_CORES, _pgV ? _pgV.texto : undefined);
   // Numerar páginas
   const total = doc.getNumberOfPages();
   for (let i=1;i<=total;i++) {
@@ -2025,13 +2029,13 @@ function gerarPDFMarmoraria() {
   const cliente = {cliente:_clienteDoAp(marmApAtual)}.cliente || '—';
   _gerarPDFMarmorariaInterno(marmApAtual, cliente, marmSelecoes);
 }
-function gerarPDFMarmorariaId(id) {
+function gerarPDFMarmorariaId(id, pagamento) {
   const p = dadosMarmoraria.find(x => x.id === id);
   if (!p) { showToast('Orçamento não encontrado', 'error'); return; }
   const selecoes = typeof p.selecoes === 'string' ? JSON.parse(p.selecoes||'[]') : (p.selecoes||[]);
-  _gerarPDFMarmorariaInterno(p.ap, p.cliente, selecoes);
+  _gerarPDFMarmorariaInterno(p.ap, p.cliente, selecoes, pagamento);
 }
-async function _gerarPDFMarmorariaInterno(ap, cliente, selecoes) {
+async function _gerarPDFMarmorariaInterno(ap, cliente, selecoes, pagamento) {
   const ESSENCE_CORES = ESSENCE_PALETAS.marmoraria;
   const jsPDF = getJsPDF();
   if (!jsPDF) { showToast('jsPDF não carregado', 'error'); return; }
@@ -2071,7 +2075,8 @@ async function _gerarPDFMarmorariaInterno(ap, cliente, selecoes) {
     alt=!alt; y+=20;
   });
   y += 6;
-  _pdfTotal(doc, y, totalM2, totalValor, 'Apto '+ap, ESSENCE_CORES);
+  const _pgM = pagamento ? _pgtoPdfInfo(totalValor, pagamento) : null;
+  _pdfTotal(doc, y, totalM2, _pgM ? _pgM.total : totalValor, 'Apto '+ap, ESSENCE_CORES, _pgM ? _pgM.texto : undefined);
   if (temOrcamento) {
     doc.setTextColor(...ESSENCE_CORES.cinza); doc.setFontSize(7); doc.setFont('helvetica','italic');
     doc.text('* Pedras Absoluta: valores apresentados em orçamento específico.', 8, y+60);
@@ -2098,11 +2103,11 @@ function gerarPDFBanheira() {
     clienteTexto.split(' - ').slice(1).join(' - ') || '—';
   _gerarPDFBanheiraInterno(banhApAtual, cliente, banhItens, banhPagamento);
 }
-function gerarPDFBanheiraId(id) {
+function gerarPDFBanheiraId(id, pagamento) {
   const p = dadosBanheiras.find(x => x.id === id);
   if (!p) { showToast('Orçamento não encontrado', 'error'); return; }
   const itens = typeof p.selecoes === 'string' ? JSON.parse(p.selecoes||'[]') : (p.selecoes||[]);
-  _gerarPDFBanheiraInterno(p.ap, p.cliente, itens, p.pagamento || 'avista');
+  _gerarPDFBanheiraInterno(p.ap, p.cliente, itens, pagamento || p.pagamento || 'avista');
 }
 async function _gerarPDFBanheiraInterno(ap, cliente, itens, pagamento) {
   const ESSENCE_CORES = ESSENCE_PALETAS.banheiras;
@@ -5828,6 +5833,17 @@ function ccCopiar() {
   const valor = parseFloat(document.getElementById('cc-valor').value) || 0; if (!valor) return;
   const t = 'Valor combinado: ' + _ccFmt(valor) + '\n' + ccTexto(valor, _ccSel);
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => showToast('Copiado'), () => prompt('Copie:', t));
+}
+
+// Total e texto da forma de pagamento para os PDFs de orçamento (condição diferente da salva)
+function _pgtoPdfInfo(total, pagamento) {
+  const r = calcularTotalComPagamento(total, pagamento || 'avista');
+  const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  let texto = (typeof _labelCondicaoPagamento === 'function' ? _labelCondicaoPagamento(pagamento || 'avista') : pagamento) || 'À Vista';
+  const taxa = TAXAS_MAQUININHA[pagamento];
+  if (taxa) texto += ' (+' + (taxa * 100).toFixed(2).replace('.', ',') + '%)';
+  if (r.parcelas > 1) texto += ' · ' + r.parcelas + 'x de ' + fmt(r.parcela || r.total / r.parcelas) + ' (total ' + fmt(r.total) + ')';
+  return { total: r.total, texto };
 }
 
 function calcularTotalComPagamento(totalValor, tipo) {
@@ -11195,7 +11211,10 @@ async function excluirComprovanteModulo(id, url, modulo) {
 
 let _outraCondicaoId = null;
 
+let _outraCondicaoModulo = null;
+function abrirOutraCondModulo(modulo, id) { _outraCondicaoModulo = modulo; _outraCondicaoId = id; abrirModal('modal-outra-condicao'); }
 function abrirModalOutraCondicao(id) {
+  _outraCondicaoModulo = null;
   _outraCondicaoId = id;
   abrirModal('modal-outra-condicao');
 }
@@ -11203,6 +11222,12 @@ function abrirModalOutraCondicao(id) {
 function selecionarCondicaoModal(pagamento) {
   fecharModal('modal-outra-condicao');
   if (!_outraCondicaoId) return;
+  if (_outraCondicaoModulo) {
+    const m = _outraCondicaoModulo, id = _outraCondicaoId;
+    const fn = { vinilico: gerarPDFVinilicoId, marmoraria: gerarPDFMarmorariaId, banheiras: gerarPDFBanheiraId, metais: gerarPDFMetaisId, civil: gerarPDFCivil, arcondicionado: gerarPDFAC }[m];
+    if (fn) fn(id, pagamento);
+    return;
+  }
   const p = dadosPersonalizar.find(x => String(x.id) === String(_outraCondicaoId));
   if (!p) return;
   const selecoes = typeof p.selecoes === 'string' ? JSON.parse(p.selecoes||'{}') : (p.selecoes||{});
@@ -15124,6 +15149,7 @@ function renderMetais() {
           ${p.pdf_original_url ? `<a href="${p.pdf_original_url}" target="_blank" class="btn btn-secondary" style="font-size:11px;padding:4px 10px">PDF original</a>` : ''}
           ${_confRenderBotao('metais', p.id)}
           <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="gerarPDFMetaisId('${p.id}')">Gerar PDF</button>
+          <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="abrirOutraCondModulo('metais','${p.id}')">Outra condição</button>
           <button class="btn btn-danger" style="font-size:11px;padding:4px 10px" onclick="excluirMetais('${p.id}')">Excluir</button>
         </div>
       </div>
@@ -15303,15 +15329,15 @@ async function salvarMetais(gerarPdf) {
   } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-async function gerarPDFMetaisId(id) {
+async function gerarPDFMetaisId(id, pagamento) {
   const item = dadosMetais.find(p => p.id === id);
   if (!item) return;
   let itens = [];
   try { itens = typeof item.itens === 'string' ? JSON.parse(item.itens||'[]') : (item.itens||[]); } catch(e) {}
-  await _gerarPDFMetaisInterno(item.ap, item.cliente, itens);
+  await _gerarPDFMetaisInterno(item.ap, item.cliente, itens, pagamento);
 }
 
-async function _gerarPDFMetaisInterno(ap, cliente, itens) {
+async function _gerarPDFMetaisInterno(ap, cliente, itens, pagamento) {
   const ESSENCE_CORES = ESSENCE_PALETAS.metais;
   const jsPDF = getJsPDF();
   if (!jsPDF) { showToast('jsPDF não carregado', 'error'); return; }
@@ -15365,7 +15391,8 @@ async function _gerarPDFMetaisInterno(ap, cliente, itens) {
       alt = !alt; y += linhaAltura + 2;
     });
     y += 6;
-    _pdfTotal(doc, y, null, total, 'Apto '+ap, ESSENCE_CORES);
+    const _pgMe = pagamento ? _pgtoPdfInfo(total, pagamento) : null;
+    _pdfTotal(doc, y, null, _pgMe ? _pgMe.total : total, 'Apto '+ap, ESSENCE_CORES, _pgMe ? _pgMe.texto : undefined);
     const totalPag = doc.getNumberOfPages();
     for (let i=1; i<=totalPag; i++) {
       doc.setPage(i);
@@ -15436,6 +15463,7 @@ function renderCivil() {
         <div style="display:flex;gap:6px">
           ${_confRenderBotao('civil', c.id)}
           <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="gerarPDFCivil('${c.id}')">📄 PDF</button>
+          <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="abrirOutraCondModulo('civil','${c.id}')">Outra condição</button>
           <button class="btn btn-secondary" style="font-size:11px;padding:4px 8px;color:var(--danger);border-color:var(--danger)" onclick="excluirCivil('${c.id}')">🗑️</button>
         </div>
       </div>
@@ -15522,9 +15550,10 @@ async function excluirCivil(id) {
   } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-async function gerarPDFCivil(id) {
-  const c = dadosCivil.find(x => x.id === id);
+async function gerarPDFCivil(id, pagamento) {
+  let c = dadosCivil.find(x => x.id === id);
   if (!c) return;
+  if (pagamento) { const base = parseFloat(c.valor_avista) || parseFloat(c.valor) || 0; c = { ...c, valor: _pgtoPdfInfo(base, pagamento).total, condicao_pagamento: pagamento }; }
   const CORES = ESSENCE_PALETAS.civil;
   showToast('Gerando PDF...', 'success');
   try {
@@ -15625,6 +15654,7 @@ function renderArCondicionado() {
         <div style="display:flex;gap:6px">
           ${_confRenderBotao('ac', c.id)}
           <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="gerarPDFAC('${c.id}')">📄 PDF</button>
+          <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px" onclick="abrirOutraCondModulo('arcondicionado','${c.id}')">Outra condição</button>
           <button class="btn btn-secondary" style="font-size:11px;padding:4px 8px;color:var(--danger);border-color:var(--danger)" onclick="excluirAC('${c.id}')">🗑️</button>
         </div>
       </div>
@@ -15748,9 +15778,10 @@ async function excluirAC(id) {
   } catch(e) { showToast('Erro: ' + e.message, 'error'); }
 }
 
-async function gerarPDFAC(id) {
-  const c = dadosArCondicionado.find(x => x.id === id);
+async function gerarPDFAC(id, pagamento) {
+  let c = dadosArCondicionado.find(x => x.id === id);
   if (!c) return;
+  if (pagamento) { const base = parseFloat(c.valor_avista) || parseFloat(c.valor) || 0; c = { ...c, valor: _pgtoPdfInfo(base, pagamento).total, condicao_pagamento: pagamento }; }
   const CORES = ESSENCE_PALETAS.arcondicionado;
   showToast('Gerando PDF...', 'success');
   try {
