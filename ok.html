@@ -114,6 +114,8 @@
   @media (max-width: 560px) { .info-strip { grid-template-columns: 1fr 1fr; } .info-strip div:nth-child(3) { border-left: none; } .info-strip div:nth-child(n+3) { border-top: 1px solid #8c8467; } }
   /* termo de prestador: preto e branco, só a capa é verde */
   body.prest { --bg:#fff; --surface:#fff; --text:#111; --text2:#444; --text3:#777; --border:#ddd; --marrom:#111; --dourado:#777; --ok:#111; --ok-bg:#f2f2f2; --warn:#111; --warn-bg:#f2f2f2; }
+  html:has(body.prest) { background:#fff; }
+  body.prest { background:#fff; }
   body.prest .topo-wiz { background:#fff; border-bottom:1px solid #ddd; }
   body.prest .topo-wiz .lin { color:#555; }
   body.prest .topo-wiz .barra { background:#e6e6e6; }
@@ -376,28 +378,21 @@ async function baixarPdf() {
     const doc = new J(); const W = 210; let y = 0;
     const centrarEsp = (t, y0, cs) => { const w = doc.getTextWidth(t) + cs * (t.length - 1); doc.text(t, W / 2 - w / 2, y0, { charSpace: cs }); };
     const marrom = [34, 58, 44], dourado = [176, 138, 90];
-    // ---- CAPA (mesma identidade da tela: Essence, foto redonda, logo Absoluta) ----
-    const img = url => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = url; });
-    doc.setFillColor(...marrom); doc.rect(0, 0, W, 297, 'F');
-    doc.setDrawColor(...dourado); doc.setLineWidth(0.4); doc.rect(10, 10, W - 20, 277);
-    const foto = await img('assets/termo-foto.jpg');
-    if (foto) { const c = document.createElement('canvas'); c.width = c.height = 700; const x = c.getContext('2d'); x.fillStyle = 'rgb(' + marrom.join(',') + ')'; x.fillRect(0, 0, 700, 700); x.beginPath(); x.arc(350, 350, 350, 0, 7); x.clip(); const m = Math.min(foto.naturalWidth, foto.naturalHeight); x.drawImage(foto, (foto.naturalWidth - m) / 2, (foto.naturalHeight - m) / 2, m, m, 0, 0, 700, 700);
-      doc.setFillColor(...marrom); try { doc.addImage(c.toDataURL('image/jpeg', 0.85), 'JPEG', W / 2 - 38, 44, 76, 76); } catch (e) {} }
-    doc.setDrawColor(...dourado); doc.setLineWidth(0.5); doc.circle(W / 2, 82, 38);
-    const ess = await img('assets/logo-essence.png');
-    if (ess) { const c = document.createElement('canvas'); c.width = 860; c.height = Math.round(860 * ess.naturalHeight / ess.naturalWidth); const x = c.getContext('2d'); x.fillStyle = 'rgb(' + marrom.join(',') + ')'; x.fillRect(0, 0, c.width, c.height); x.drawImage(ess, 0, 0, c.width, c.height); const wmm = 92, hmm = wmm * c.height / c.width; try { doc.addImage(c.toDataURL('image/jpeg', 0.92), 'JPEG', W / 2 - wmm / 2, 130, wmm, hmm); } catch (e) {} }
-    doc.setTextColor(238, 240, 228); doc.setFont('helvetica', 'normal'); doc.setFontSize(15); const tl = doc.splitTextToSize(termo.titulo || 'Termo', 150); doc.text(tl, W / 2, 186, { align: 'center' });
-    let cy = 186 + tl.length * 7 + 5; doc.setFontSize(11); doc.setTextColor(200, 205, 190);
-    doc.text('Apartamento ' + termo.apto + (termo.cliente ? '  ·  ' + termo.cliente : ''), W / 2, cy, { align: 'center' });
-    const lg = await img('assets/logo-absoluta.png');
-    if (lg) { const c = document.createElement('canvas'); c.width = 600; c.height = 104; const x = c.getContext('2d'); x.fillStyle = 'rgb(' + marrom.join(',') + ')'; x.fillRect(0, 0, 600, 104); x.drawImage(lg, 0, 0, 600, 104); try { doc.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', W / 2 - 22, 262, 44, 7.6); } catch (e) {} }
-    doc.setFontSize(8); doc.setTextColor(...dourado); doc.text('Assinado em ' + termo.assinado_em, W / 2, 278, { align: 'center' });
-    // ---- páginas de conteúdo ----
-    doc.addPage(); y = 0;
-    doc.setFillColor(...marrom); doc.rect(0, 0, W, 18, 'F');
-    doc.setTextColor(238, 240, 228); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ABSOLUTA', 12, 11.5, { charSpace: 1.5 });
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text((termo.titulo || 'Termo') + '  ·  Apto ' + termo.apto, W - 12, 11.5, { align: 'right' });
-    y = 30;
+    // ---- CAPA: banner verde do Essence + faixa de informações (igual aos PDFs de orçamento) ----
+    const banner = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = 'assets/capa_civil_ac.png'; });
+    if (banner) { const c = document.createElement('canvas'); c.width = 2000; c.height = 457; c.getContext('2d').drawImage(banner, 0, 0, 2000, 457); try { doc.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 48); } catch (e) {} }
+    else { doc.setFillColor(34, 58, 44); doc.rect(0, 0, W, 48, 'F'); }
+    doc.setFillColor(245, 245, 245); doc.rect(0, 50, W, 32, 'F'); doc.setDrawColor(17, 17, 17); doc.setLineWidth(0.3);
+    [62, 105, 150].forEach(x => doc.line(x, 56, x, 76));
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(6.5); doc.setTextColor(120, 118, 112);
+    ['C L I E N T E', 'U N I D A D E', 'S E R V I Ç O', 'A S S I N A D O  E M'].forEach((l, i) => doc.text(l, [8, 67, 110, 155][i], 62));
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(14, 14, 14);
+    doc.text(String(termo.cliente || '—').slice(0, 24), 8, 73); doc.text('Apto ' + termo.apto, 67, 73); doc.text(String(termo.modulo || termo.titulo || '').slice(0, 22), 110, 73);
+    doc.text(String(termo.assinado_em || '').slice(0, 16), 155, 73);
+    doc.setDrawColor(17, 17, 17); doc.setLineWidth(0.8); doc.line(0, 82, W, 82);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(28, 26, 21);
+    const tl = doc.splitTextToSize(termo.titulo || 'Termo', 186); doc.text(tl, 12, 94);
+    y = 94 + tl.length * 7 + 4;
     if (termo.intro) {
       doc.setFont('helvetica', 'normal'); doc.setFontSize(10.5); doc.setTextColor(28, 26, 21);
       const tx = doc.splitTextToSize(termo.intro, 186);
@@ -462,6 +457,12 @@ function _capaPrest() {
   return `<img class="capa-banner" src="assets/capa_civil_ac.png" alt="Essence Residence"><div class="info-strip">
     <div><small>Cliente</small><b>${esc(termo.cliente || '—')}</b></div><div><small>Unidade</small><b>Apto ${esc(termo.apto)}</b></div>
     <div><small>Serviço</small><b>${esc(termo.titulo.replace(/^Termo de /, ''))}</b></div><div><small>Prazo</small><b>${esc(termo.prazo || 'a combinar')}</b></div></div>`;
+}
+function _capaCliente() {
+  const hoje = new Date().toLocaleDateString('pt-BR');
+  return `<img class="capa-banner" src="assets/capa_civil_ac.png" alt="Essence Residence"><div class="info-strip">
+    <div><small>Cliente</small><b>${esc(termo.cliente || '—')}</b></div><div><small>Unidade</small><b>Apto ${esc(termo.apto)}</b></div>
+    <div><small>Serviço</small><b>${esc(termo.modulo || String(termo.titulo || '').replace(/^Termo de /, ''))}</b></div><div><small>Data</small><b>${hoje}</b></div></div>`;
 }
 function _servicoHtml() {
   return `<div class="card" style="margin-top:14px;font-size:14px;line-height:1.8"><strong>Apartamento:</strong> ${esc(termo.apto)}${termo.cliente ? ' · ' + esc(termo.cliente) : ''}<br><strong>Serviço:</strong> ${esc(termo.titulo.replace(/^Termo de /, ''))}<br><strong>Prazo de execução:</strong> ${esc(termo.prazo || 'a combinar')}</div>`;
@@ -675,9 +676,19 @@ function extraHtml(it) {
     <div class="fotos" id="fotos-${it.id}">${fotosHtml(it)}<label class="btn">📷 ${(it.fotos || []).length ? 'Adicionar outra foto' : 'Tirar / adicionar foto'}<input type="file" accept="image/*" style="display:none" onchange="enviarFoto('${it.id}',this)"></label></div>`;
 }
 function desenhar() {
+  document.body.classList.add('prest'); document.documentElement.setAttribute('data-theme', 'light');
   const app = document.getElementById('app'), q = passos[passo], total = passos.length - 1;
   window.scrollTo(0, 0);
   if (q.t === 'capa') {
+    document.body.classList.add('prest'); document.documentElement.setAttribute('data-theme', 'light');
+    app.innerHTML = `${_capaCliente()}<div class="pagina" style="padding-bottom:140px"><div class="q-num">${esc(termo.modulo || 'Termo')}</div>
+      <h2 class="q-txt" style="margin-bottom:10px">${esc(termo.titulo || 'Termo')}</h2>
+      <p class="q-sub" style="margin:0">Apartamento ${esc(termo.apto)}${termo.cliente ? ' · ' + esc(termo.cliente) : ''}</p>
+      <p class="intro" style="margin-top:22px">Você vai responder algumas perguntas rápidas sobre o seu apartamento e, no final, assinar na tela. Leva poucos minutos.</p></div>
+      <div class="rodape-wiz"><div class="in"><button class="btn primary" onclick="avancar()">Iniciar</button></div></div>`;
+    return;
+  }
+  if (false) {
     app.innerHTML = `<section class="capa2"><div class="fundo"></div><div class="pilula">
       <div class="foto"></div>
       <img class="essence-logo" src="assets/logo-essence.png" alt="Essence Residence">
@@ -722,7 +733,7 @@ function desenhar() {
       </div>`;
     nav = `<button class="btn" style="flex:1" onclick="voltar()">Voltar</button>`;
   }
-  app.innerHTML = `<div class="topo-wiz"><div class="lin"><img class="topo-logo" src="assets/logo-essence.png" alt="Essence Residence"><span>Apto ${esc(termo.apto)}</span></div><div class="barra"><i style="width:${Math.round(passo / total * 100)}%"></i></div></div>
+  app.innerHTML = `<div class="topo-wiz"><div class="lin"><span>${esc(termo.modulo || 'Termo')}</span><span>Apto ${esc(termo.apto)}</span></div><div class="barra"><i style="width:${Math.round(passo / total * 100)}%"></i></div></div>
     <div class="pagina">${corpo}</div><div class="rodape-wiz"><div class="in">${nav}</div></div>`;
   if (q.t === 'final') {
     iniciarPad('cliente'); document.getElementById('obs-geral').addEventListener('input', e => { termo.obs_geral = e.target.value; agendarSalvar(); });
