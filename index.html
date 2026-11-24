@@ -7367,7 +7367,7 @@ function renderVistorias() {
     if (t.categoria === 'prestador') return _cardTermoPrest(t);
     const badge = ass ? '<span style="background:#e8f5e9;color:#2e7d3f;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">✓ Assinado</span>' : '<span style="background:#fff3dc;color:#b26a00;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">Aguardando</span>';
     return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:700;font-size:15px">Apto ${escHtml(t.apto)}</div><div style="font-size:12px;color:var(--text3)">${escHtml(t.cliente || '—')}</div></div>${badge}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:700;font-size:15px">Apto ${escHtml(t.apto)}</div><div style="font-size:12px;color:var(--text3)">${escHtml(t.cliente || _clienteDoAp(t.apto) || '—')}</div></div>${badge}</div>
       <div style="margin-top:10px;font-size:14px;font-weight:600">${escHtml(t.titulo)}</div>
       <div style="font-size:12px;color:var(--text2);margin-top:4px">${feitos} de ${n} itens conferidos${res ? ' · <strong style="color:#b5453d">' + res + ' com resposta “Não”</strong>' : ''}</div>
       ${ass ? `<div style="font-size:12px;color:var(--text3);margin-top:2px">Assinado em ${escHtml(t.assinado_em)}</div>` : `<div style="font-size:12px;color:var(--text3);margin-top:2px">Criado em ${escHtml(t.criado_em)}</div>`}
@@ -7386,7 +7386,7 @@ function _cardTermoPrest(t) {
     : '<span style="background:#fff3dc;color:#b26a00;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700">Aguardando prestador</span>';
   const quem = t.nome_cliente ? escHtml(t.nome_cliente) + (t.empresa ? ' · ' + escHtml(t.empresa) : '') : 'Ainda não preenchido';
   return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:700;font-size:15px">Apto ${escHtml(t.apto)}</div><div style="font-size:12px;color:var(--text3)">${escHtml(t.cliente || '—')}</div></div>${badge}</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px"><div><div style="font-weight:700;font-size:15px">Apto ${escHtml(t.apto)}</div><div style="font-size:12px;color:var(--text3)">${escHtml(t.cliente || _clienteDoAp(t.apto) || '—')}</div></div>${badge}</div>
     <div style="margin-top:10px;font-size:14px;font-weight:600">${escHtml(t.titulo)}</div>
     <div style="font-size:12px;color:var(--text2);margin-top:4px">Prestador: ${quem}</div>
     ${t.prazo ? `<div style="font-size:12px;color:var(--text2);margin-top:2px">Prazo: ${escHtml(t.prazo)}</div>` : ''}
