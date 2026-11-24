@@ -429,54 +429,110 @@ function _statusPrestBanner() {
   if (termo.status === 'assinado') return `<div class="assinado-banner"><strong>✓ Termo assinado pelas duas partes</strong> em ${esc(termo.assinado_em)}<br>Código de verificação: <strong>${esc(termo.hash)}</strong></div>`;
   return `<div class="assinado-banner" style="background:var(--warn-bg);color:var(--warn)"><strong>✓ Sua assinatura foi enviada.</strong><br>O termo será válido quando a Absoluta assinar também. Você pode baixar a cópia quando estiver completo.</div>`;
 }
+const PF = { nome: '', cpf: '', semCnpj: false, cnpj: '', emp: '', tel: '', aceite: false };
+let pPasso = 0;
+const P_PASSOS = ['dados', 'docs', 'termo', 'assina'];
 function renderPrestador() {
-  document.body.classList.remove('wiz');
   const app = document.getElementById('app');
   document.getElementById('sub').textContent = 'Prestador de serviço · Apto ' + termo.apto;
-  let h = '';
-  if (travado) h += _statusPrestBanner();
-  h += `<h2>Termo</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>`;
   if (travado) {
-    h += `<h2>Dados do prestador</h2><div class="card" style="margin-top:8px;font-size:14px;line-height:1.8">
-      <strong>Nome:</strong> ${esc(termo.nome_cliente)}<br><strong>CPF/CNPJ:</strong> ${esc(termo.documento)}<br><strong>Empresa:</strong> ${esc(termo.empresa)}<br><strong>Telefone:</strong> ${esc(termo.telefone)}</div>
+    document.body.classList.remove('wiz');
+    let h = _statusPrestBanner();
+    h += `<h2>Termo</h2><div class="card" style="margin-top:8px"><div class="capa-txt">${esc(termo.texto)}</div></div>
+      <h2>Dados do prestador</h2><div class="card" style="margin-top:8px;font-size:14px;line-height:1.8">
+      <strong>Nome:</strong> ${esc(termo.nome_cliente)}<br><strong>CPF:</strong> ${esc(termo.documento)}<br>${termo.cnpj ? `<strong>CNPJ:</strong> ${esc(termo.cnpj)}<br>` : ''}<strong>Empresa:</strong> ${esc(termo.empresa)}<br><strong>Telefone:</strong> ${esc(termo.telefone)}</div>
       <h2>Assinaturas</h2><div class="card" style="margin-top:8px">
       <div><strong>Prestador:</strong> ${esc(termo.nome_cliente)}<br><img class="sigimg" src="${esc(termo.assinatura_cliente)}" alt="Assinatura do prestador"></div>
       ${termo.assinatura_arquiteto ? `<div style="margin-top:16px"><strong>Absoluta:</strong> ${esc(termo.nome_arquiteto)}<br><img class="sigimg" src="${esc(termo.assinatura_arquiteto)}" alt="Assinatura da Absoluta"></div>` : ''}</div>
       ${termo.status === 'assinado' ? `<button class="btn primary big" style="margin-top:16px" onclick="baixarPdf()" id="btn-pdf">Baixar PDF do termo</button>` : ''}`;
     app.innerHTML = h; return;
   }
-  h += `<h2>Seus dados</h2><div class="card" style="margin-top:8px">
-    <label class="intro">Nome completo</label><input type="text" id="p-nome" autocomplete="name" placeholder="Nome e sobrenome" style="margin-top:4px">
-    <label class="intro" style="display:block;margin-top:12px">CPF ou CNPJ</label><input type="text" id="p-doc" inputmode="numeric" placeholder="Somente números" style="margin-top:4px">
-    <label class="intro" style="display:block;margin-top:12px">Empresa</label><input type="text" id="p-emp" placeholder="Nome da empresa (ou &quot;autônomo&quot;)" style="margin-top:4px">
-    <label class="intro" style="display:block;margin-top:12px">Telefone (com DDD)</label><input type="text" id="p-tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" style="margin-top:4px">
-  </div>
-  <h2>Foto do documento</h2><div class="card" style="margin-top:8px">
-    <div class="intro">Envie uma foto nítida do seu RG, CNH ou, se for empresa, do cartão CNPJ.</div>
-    <div class="fotos" id="p-fotos">${termo.doc_foto ? `<img src="${fotoUrl(termo.doc_foto, 300)}" alt="Documento">` : ''}
-      <label class="btn" id="p-doc-btn">📷 ${termo.doc_foto ? 'Trocar foto' : 'Tirar / escolher foto'}<input type="file" accept="image/*" style="display:none" onchange="enviarDocPrest(this)"></label></div>
-  </div>
-  <h2>Assinatura</h2><div class="card" style="margin-top:8px">
-    <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="p-aceite" style="margin-top:3px;width:18px;height:18px">
-      <span>Li o termo acima e concordo com todas as condições.</span></label>
-    <div class="sig" style="margin-top:14px"><strong>Assine aqui</strong>
-      <canvas id="pad-cliente"></canvas><div class="hint" id="hint-cliente">Assine aqui com o dedo</div><button class="btn limpar" onclick="limpar('cliente')">Limpar</button></div>
-    <div class="erro" id="erro" style="display:none"></div>
-    <button class="btn primary big" style="margin-top:14px" id="btn-assinar" onclick="assinarPrest()">Assinar e enviar</button>
-  </div>`;
-  app.innerHTML = h;
-  document.getElementById('p-doc').addEventListener('input', e => { e.target.value = _maskDoc(e.target.value); });
-  document.getElementById('p-tel').addEventListener('input', e => { e.target.value = _maskTel(e.target.value); });
-  iniciarPad('cliente');
+  desenharP();
 }
-async function enviarDocPrest(input) {
+function _lerP() {
+  const g = id => { const e = document.getElementById(id); return e ? e : null; };
+  if (g('p-nome')) { PF.nome = g('p-nome').value; PF.cpf = g('p-cpf').value; PF.semCnpj = g('p-sem').checked; PF.cnpj = g('p-cnpj').value; PF.emp = g('p-emp').value; PF.tel = g('p-tel').value; }
+  if (g('p-aceite')) PF.aceite = g('p-aceite').checked;
+}
+function _docBox(chave, titulo, dica, obrigatorio) {
+  const id = termo[chave];
+  return `<div class="card" style="margin-top:14px"><strong>${titulo}</strong> <span style="font-size:12px;color:${obrigatorio ? 'var(--danger)' : 'var(--text3)'}">${obrigatorio ? 'obrigatório' : 'opcional'}</span>
+    <div class="intro" style="margin-top:4px">${dica}</div>
+    <div class="fotos" id="pf-${chave}">${id ? `<img src="${fotoUrl(id, 300)}" alt="${titulo}">` : ''}
+      <label class="btn">📷 ${id ? 'Trocar foto' : 'Tirar / escolher foto'}<input type="file" accept="image/*" style="display:none" onchange="enviarDocPrest('${chave}',this)"></label></div></div>`;
+}
+function desenharP() {
+  document.body.classList.add('wiz'); window.scrollTo(0, 0);
+  const app = document.getElementById('app'), q = P_PASSOS[pPasso], total = P_PASSOS.length - 1;
+  const titulos = { dados: 'Seus dados', docs: 'Seus documentos', termo: 'Leia o termo', assina: 'Assinatura' };
+  let corpo = '', nav = '';
+  if (q === 'dados') {
+    corpo = `<div class="q-num">Etapa 1 de 4</div><h2 class="q-txt">Seus dados</h2>
+      <label class="intro">Nome completo</label><input type="text" id="p-nome" autocomplete="name" placeholder="Nome e sobrenome" style="margin-top:4px" value="${esc(PF.nome)}">
+      <label class="intro" style="display:block;margin-top:14px">CPF</label><input type="text" id="p-cpf" inputmode="numeric" placeholder="000.000.000-00" style="margin-top:4px" value="${esc(PF.cpf)}">
+      <label style="display:flex;gap:10px;align-items:center;font-size:14px;margin-top:16px;cursor:pointer"><input type="checkbox" id="p-sem" style="width:18px;height:18px" ${PF.semCnpj ? 'checked' : ''} onchange="_lerP();desenharP()"> Sou autônomo (não tenho CNPJ)</label>
+      ${PF.semCnpj ? '' : `<label class="intro" style="display:block;margin-top:14px">CNPJ</label><input type="text" id="p-cnpj" inputmode="numeric" placeholder="00.000.000/0000-00" style="margin-top:4px" value="${esc(PF.cnpj)}">`}
+      <label class="intro" style="display:block;margin-top:14px">${PF.semCnpj ? 'Empresa / nome profissional' : 'Empresa (razão social ou nome fantasia)'}</label><input type="text" id="p-emp" placeholder="${PF.semCnpj ? 'Pode repetir o seu nome' : 'Nome da empresa'}" style="margin-top:4px" value="${esc(PF.emp)}">
+      <label class="intro" style="display:block;margin-top:14px">Telefone (com DDD)</label><input type="text" id="p-tel" inputmode="tel" autocomplete="tel" placeholder="(00) 00000-0000" style="margin-top:4px" value="${esc(PF.tel)}">
+      <div class="erro-passo" id="erro-passo"></div>`;
+    nav = `<button class="btn primary" onclick="proxP()">Próximo</button>`;
+  } else if (q === 'docs') {
+    corpo = `<div class="q-num">Etapa 2 de 4</div><h2 class="q-txt">Seus documentos</h2><div class="q-sub">Fotos nítidas, com o documento inteiro aparecendo.</div>
+      ${_docBox('doc_foto', 'Documento pessoal', 'RG ou CNH (se for RG, envie a frente; o verso pode ser incluído na mesma foto).', true)}
+      ${PF.semCnpj ? '' : _docBox('doc_cnpj_foto', 'Cartão CNPJ', 'Comprovante de inscrição e de situação cadastral da empresa (pode baixar no site da Receita Federal).', true)}
+      ${_docBox('doc_nr_foto', 'Certificado NR-10', 'Curso de segurança em instalações elétricas, se você tiver.', false)}
+      <div class="erro-passo" id="erro-passo"></div>`;
+    nav = `<button class="btn" onclick="voltarP()">Voltar</button><button class="btn primary" onclick="proxP()">Próximo</button>`;
+  } else if (q === 'termo') {
+    corpo = `<div class="q-num">Etapa 3 de 4</div><p class="leia">Leia com atenção</p><div class="card"><div class="capa-txt">${esc(termo.texto)}</div></div>
+      <label style="display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer;margin-top:18px"><input type="checkbox" id="p-aceite" style="margin-top:3px;width:18px;height:18px" ${PF.aceite ? 'checked' : ''}><span>Li o termo acima e concordo com todas as condições.</span></label>
+      <div class="erro-passo" id="erro-passo"></div>`;
+    nav = `<button class="btn" onclick="voltarP()">Voltar</button><button class="btn primary" onclick="proxP()">Próximo</button>`;
+  } else {
+    corpo = `<div class="q-num">Etapa 4 de 4</div><h2 class="q-txt">Assinatura</h2>
+      <div class="card" style="font-size:14px;line-height:1.7"><strong>${esc(PF.nome)}</strong><br>CPF ${esc(PF.cpf)}${PF.semCnpj ? '' : '<br>CNPJ ' + esc(PF.cnpj)}<br>${esc(PF.emp)} · ${esc(PF.tel)}</div>
+      <div class="sig" style="margin-top:18px"><strong>Assine aqui</strong><canvas id="pad-cliente"></canvas><div class="hint" id="hint-cliente">Assine aqui com o dedo</div><button class="btn limpar" onclick="limpar('cliente')">Limpar</button></div>
+      <p class="intro" style="margin-top:14px">Ao assinar, confirmo que os dados são verdadeiros e que concordo com o termo. Depois de enviado, ele não pode ser alterado.</p>
+      <div class="erro" id="erro" style="display:none"></div>
+      <button class="btn primary big" style="margin-top:14px" id="btn-assinar" onclick="assinarPrest()">Assinar e enviar</button>`;
+    nav = `<button class="btn" style="flex:1" onclick="voltarP()">Voltar</button>`;
+  }
+  app.innerHTML = `<div class="topo-wiz"><div class="lin"><img class="topo-logo" src="assets/logo-essence.png" alt="Essence Residence"><span>${titulos[q]}</span></div><div class="barra"><i style="width:${Math.round((pPasso + 1) / (total + 1) * 100)}%"></i></div></div>
+    <div class="pagina">${corpo}</div><div class="rodape-wiz"><div class="in">${nav}</div></div>`;
+  if (q === 'dados') {
+    document.getElementById('p-cpf').addEventListener('input', e => { e.target.value = _maskDoc(e.target.value.replace(/\D/g, '').slice(0, 11)); });
+    const c = document.getElementById('p-cnpj'); if (c) c.addEventListener('input', e => { e.target.value = _maskDoc(e.target.value); });
+    document.getElementById('p-tel').addEventListener('input', e => { e.target.value = _maskTel(e.target.value); });
+  }
+  if (q === 'assina') iniciarPad('cliente');
+}
+function _erroP(m) { const e = document.getElementById('erro-passo'); if (e) e.textContent = m; return false; }
+function proxP() {
+  _lerP(); const q = P_PASSOS[pPasso];
+  if (q === 'dados') {
+    if (PF.nome.trim().split(/\s+/).filter(Boolean).length < 2) return _erroP('Escreva o nome completo.');
+    if (PF.cpf.replace(/\D/g, '').length !== 11) return _erroP('Confira o CPF (11 números).');
+    if (!PF.semCnpj && PF.cnpj.replace(/\D/g, '').length !== 14) return _erroP('Confira o CNPJ (14 números) ou marque que é autônomo.');
+    if (!PF.emp.trim()) return _erroP('Informe a empresa.');
+    if (PF.tel.replace(/\D/g, '').length < 10) return _erroP('Informe o telefone com DDD.');
+  } else if (q === 'docs') {
+    if (!termo.doc_foto) return _erroP('Envie a foto do documento pessoal.');
+    if (!PF.semCnpj && !termo.doc_cnpj_foto) return _erroP('Envie o cartão CNPJ da empresa.');
+  } else if (q === 'termo') {
+    if (!PF.aceite) return _erroP('Marque que leu e concorda para continuar.');
+  }
+  pPasso++; desenharP();
+}
+function voltarP() { _lerP(); if (pPasso > 0) { pPasso--; desenharP(); } }
+async function enviarDocPrest(chave, input) {
   const file = input.files && input.files[0]; if (!file) return;
+  const item = { doc_foto: '__doc', doc_cnpj_foto: '__cnpj', doc_nr_foto: '__nr' }[chave];
   mostrarSalvo('Enviando foto…');
   try {
     const b64 = await reduzirImagem(file, 1600);
-    const r = await post('uploadFotoTermoVistoria', { token: TOKEN, item_id: '__doc', mimeType: 'image/jpeg', base64data: b64 });
-    termo.doc_foto = r.fileId;
-    const box = document.getElementById('p-fotos'), label = document.getElementById('p-doc-btn');
+    const r = await post('uploadFotoTermoVistoria', { token: TOKEN, item_id: item, mimeType: 'image/jpeg', base64data: b64 });
+    termo[chave] = r.fileId;
+    const box = document.getElementById('pf-' + chave), label = box.querySelector('label');
     box.querySelectorAll('img').forEach(i => i.remove());
     const im = document.createElement('img'); im.src = fotoUrl(r.fileId, 300); im.alt = 'Documento'; box.insertBefore(im, label);
     label.firstChild.textContent = '📷 Trocar foto';
@@ -487,19 +543,11 @@ async function enviarDocPrest(input) {
 async function assinarPrest() {
   const erro = document.getElementById('erro'); erro.style.display = 'none';
   const falha = m => { erro.textContent = m; erro.style.display = 'block'; erro.scrollIntoView({ block: 'center', behavior: 'smooth' }); };
-  const nome = document.getElementById('p-nome').value.trim(), doc = document.getElementById('p-doc').value.trim(), emp = document.getElementById('p-emp').value.trim(), tel = document.getElementById('p-tel').value.trim();
-  const dd = doc.replace(/\D/g, '');
-  if (nome.split(/\s+/).filter(Boolean).length < 2) return falha('Escreva o nome completo.');
-  if (dd.length !== 11 && dd.length !== 14) return falha('Confira o CPF (11 números) ou CNPJ (14 números).');
-  if (!emp) return falha('Informe a empresa (ou escreva "autônomo").');
-  if (tel.replace(/\D/g, '').length < 10) return falha('Informe o telefone com DDD.');
-  if (!termo.doc_foto) return falha('Envie a foto do seu documento.');
-  if (!document.getElementById('p-aceite').checked) return falha('Marque que leu e concorda com o termo.');
   if (!pads.cliente.desenhou) return falha('Falta a sua assinatura.');
   if (!confirm('Enviar o termo assinado? Depois de enviado ele não poderá mais ser alterado.')) return;
   const btn = document.getElementById('btn-assinar'); btn.disabled = true; btn.textContent = 'Enviando…';
   try {
-    await post('assinarTermoVistoria', { token: TOKEN, nome_cliente: nome, documento: doc, empresa: emp, telefone: tel, aceite: true, assinatura_cliente: exportarAssinatura('cliente') });
+    await post('assinarTermoVistoria', { token: TOKEN, nome_cliente: PF.nome.trim(), documento: PF.cpf, cnpj: PF.semCnpj ? '' : PF.cnpj, sem_cnpj: PF.semCnpj, empresa: PF.emp.trim(), telefone: PF.tel, aceite: true, assinatura_cliente: exportarAssinatura('cliente') });
     window._enviado = true; await carregar(); window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) { btn.disabled = false; btn.textContent = 'Assinar e enviar'; falha(e.message); }
 }
@@ -528,11 +576,12 @@ async function baixarPdfPrestador() {
     y += 6; nova(46);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...dourado); doc.text('DADOS DO PRESTADOR', 12, y); y += 6;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(28, 26, 21);
-    [['Nome', termo.nome_cliente], ['CPF/CNPJ', termo.documento], ['Empresa', termo.empresa], ['Telefone', termo.telefone]].forEach(l => { doc.text(l[0] + ': ' + (l[1] || ''), 12, y); y += 5.6; });
+    [['Nome', termo.nome_cliente], ['CPF', termo.documento], ...(termo.cnpj ? [['CNPJ', termo.cnpj]] : []), ['Empresa', termo.empresa], ['Telefone', termo.telefone]].forEach(l => { doc.text(l[0] + ': ' + (l[1] || ''), 12, y); y += 5.6; });
     y += 4;
-    if (termo.doc_foto) {
-      const d = await imgParaDataUrl(fotoUrl(termo.doc_foto, 900));
-      if (d) { nova(70); try { doc.addImage(d, 'JPEG', 12, y, 80, 60); y += 66; } catch (e) {} }
+    for (const [chave, rot] of [['doc_foto', 'Documento pessoal'], ['doc_cnpj_foto', 'Cartão CNPJ'], ['doc_nr_foto', 'Certificado NR-10']]) {
+      if (!termo[chave]) continue;
+      const d = await imgParaDataUrl(fotoUrl(termo[chave], 900));
+      if (d) { nova(76); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120, 114, 96); doc.text(rot, 12, y); try { doc.addImage(d, 'JPEG', 12, y + 2, 80, 60); y += 70; } catch (e) {} }
     }
     nova(50);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...dourado); doc.text('ASSINATURAS', 12, y); y += 4; doc.setDrawColor(...dourado);
