@@ -633,7 +633,14 @@ async function baixarPdfPrestador() {
     for (const [chave, rot] of [['doc_foto', 'Documento pessoal'], ['doc_cnpj_foto', 'Cartão CNPJ'], ['doc_nr_foto', 'Certificado NR-10']]) {
       if (!termo[chave]) continue;
       const d = await imgParaDataUrl(fotoUrl(termo[chave], 900));
-      if (d) { nova(76); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120, 114, 96); doc.text(rot, 12, y); try { doc.addImage(d, 'JPEG', 12, y + 2, 80, 60); y += 70; } catch (e) {} }
+      if (d) {
+        const im = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = d; });
+        let dd = d, dim = [4, 3];
+        if (im) { const sc = Math.min(1, 1400 / Math.max(im.naturalWidth, im.naturalHeight)), cw = Math.round(im.naturalWidth * sc), ch = Math.round(im.naturalHeight * sc);
+          const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch; const cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0, 0, cw, ch); cx.drawImage(im, 0, 0, cw, ch); dd = cv.toDataURL('image/jpeg', 0.88); dim = [cw, ch]; }
+        const k = Math.min(120 / dim[0], 90 / dim[1]), iw = dim[0] * k, ih = dim[1] * k;
+        nova(ih + 14); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(120, 114, 96); doc.text(rot, 12, y);
+        try { doc.addImage(dd, 'JPEG', 12, y + 2, iw, ih); y += ih + 10; } catch (e) {} }
     }
     nova(50);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...dourado); doc.text('ASSINATURAS', 12, y); y += 4; doc.setDrawColor(...dourado);
