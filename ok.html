@@ -607,7 +607,7 @@ async function baixarPdfPrestador() {
     const marrom = [17, 17, 17], dourado = [119, 119, 119];
     const cab = () => { doc.setFillColor(...marrom); doc.rect(0, 0, W, 18, 'F'); doc.setTextColor(238, 240, 228); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.text('ABSOLUTA', 12, 11.5, { charSpace: 1.5 });
       doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.text((termo.titulo || 'Termo') + '  ·  Apto ' + termo.apto, W - 12, 11.5, { align: 'right' }); };
-    const nova = h => { if (y + h > 282) { doc.addPage(); cab(); y = 28; } };
+    const nova = h => { if (y + h > 282) { doc.addPage(); cab(); y = 28; doc.setTextColor(28, 26, 21); doc.setFont('helvetica', 'normal'); doc.setFontSize(10); } };
     const banner = await new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = 'assets/capa_civil_ac.png'; });
     if (banner) { const c = document.createElement('canvas'); c.width = 2000; c.height = 457; c.getContext('2d').drawImage(banner, 0, 0, 2000, 457); try { doc.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 48); } catch (e) {} }
     else { doc.setFillColor(34, 58, 44); doc.rect(0, 0, W, 48, 'F'); }
