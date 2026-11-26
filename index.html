@@ -4295,6 +4295,7 @@ try { aplicarTema(JSON.parse(localStorage.getItem(TEMA_KEY) || 'null')); } catch
       <p>Parcelas futuras das entradas lançadas — o que vai precisar virar boleto, mês a mês</p>
     </div>
     <div class="header-actions">
+      <button class="btn btn-primary" onclick="exportarPrevisaoPDF()" id="btn-prev-pdf">Exportar PDF</button>
       <button class="btn btn-secondary" onclick="loadPrevisaoCobrancas()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
         Atualizar
@@ -8982,6 +8983,71 @@ async function gerarPDFRelatorioConta(contaKey) {
   } catch(erro) {
     showToast('Erro ao gerar PDF: ' + erro.message, 'error');
   }
+}
+
+async function exportarPrevisaoPDF() {
+  const b = document.getElementById('btn-prev-pdf'); if (b) { b.disabled = true; b.textContent = 'Gerando…'; }
+  try {
+    const J = getJsPDF(); if (!J) throw new Error('Biblioteca de PDF não carregou');
+    const fmt = v => 'R$ ' + v.toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const dd = d => String(d.getDate()).padStart(2,'0') + '/' + String(d.getMonth()+1).padStart(2,'0') + '/' + d.getFullYear();
+    const nomes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const hoje = new Date(); hoje.setHours(0,0,0,0);
+    const atrasadas = _calcularParcelasAtrasadas().filter(p => p.tipo === 'entrada').sort((a,b) => a.data - b.data);
+    const futuras = _calcularParcelasFuturas().filter(p => p.tipo === 'entrada' && !p.automatico).sort((a,b) => a.data - b.data);
+    const credito = _calcularParcelasFuturas().filter(p => p.tipo === 'entrada' && p.automatico);
+    if (!atrasadas.length && !futuras.length) throw new Error('Não há cobranças a receber para exportar');
+
+    const doc = new J({ unit: 'mm', format: 'a4' });
+    const W = 210, ml = 14, mr = 14, TX = [28,26,21], CZ = [120,118,112], VM = [168,50,40], LN = [215,212,205];
+    const col = { dt: ml, apto: ml + 24, cli: ml + 44, cat: ml + 104, parc: ml + 150, val: W - mr };
+    let y = 0, pag = 0;
+    const cab = () => { pag++;
+      doc.setFillColor(17,17,17); doc.rect(0,0,W,16,'F'); doc.setTextColor(238,240,228); doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.text('ABSOLUTA', ml, 10.5, { charSpace: 1.5 });
+      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.text('Previsão de cobranças · Essence Residence', W - mr, 10.5, { align: 'right' }); y = 26; };
+    const nova = h => { if (y + h > 284) { doc.addPage(); cab(); } };
+    const cabTab = cor => { doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(...CZ);
+      doc.text('DATA', col.dt, y); doc.text('APTO', col.apto, y); doc.text('CLIENTE', col.cli, y); doc.text('CATEGORIA', col.cat, y); doc.text('PARCELA', col.parc, y); doc.text('VALOR', col.val, y, { align: 'right' });
+      y += 2; doc.setDrawColor(...LN); doc.setLineWidth(0.3); doc.line(ml, y, W - mr, y); y += 5; };
+    const linha = (p, cor, extra) => { nova(8);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...TX);
+      doc.text(dd(p.data), col.dt, y); doc.text(String(p.apartamento || '—'), col.apto, y);
+      doc.text(doc.splitTextToSize(String(p.cliente || '—'), 58)[0], col.cli, y);
+      doc.setTextColor(...CZ); doc.setFontSize(8); doc.text(doc.splitTextToSize((p.categoria || '') + ' · ' + _labelCondicaoPagamento(p.condicao), 44)[0], col.cat, y);
+      doc.text(p.numeroParcela + '/' + p.totalParcelas, col.parc, y);
+      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...cor); doc.text(fmt(p.valor), col.val, y, { align: 'right' });
+      if (extra) { y += 4; doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...cor); doc.text(extra, col.dt, y); }
+      y += 2.5; doc.setDrawColor(235,233,227); doc.line(ml, y, W - mr, y); y += 5; };
+
+    cab();
+    doc.setFont('helvetica','bold'); doc.setFontSize(17); doc.setTextColor(...TX); doc.text('Quem precisa ser cobrado', ml, y); y += 6;
+    doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.setTextColor(...CZ); doc.text('Posição em ' + dd(new Date()) + ' · Boletos e PIX parcelados a gerar/receber', ml, y); y += 9;
+    const totA = atrasadas.reduce((s,p) => s + p.valor, 0), totF = futuras.reduce((s,p) => s + p.valor, 0);
+    doc.setFillColor(247,246,242); doc.setDrawColor(...LN); doc.roundedRect(ml, y, W - ml - mr, 17, 2, 2, 'FD');
+    const box = (x, l, v, c) => { doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(...CZ); doc.text(l, x, y + 6.5); doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.setTextColor(...c); doc.text(v, x, y + 13.5); };
+    box(ml + 5, 'VENCIDAS SEM BAIXA (' + atrasadas.length + ')', fmt(totA), atrasadas.length ? VM : TX);
+    box(ml + 95, 'A COBRAR NOS PRÓXIMOS MESES (' + futuras.length + ')', fmt(totF), TX);
+    y += 26;
+
+    if (atrasadas.length) {
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...VM); doc.text('Vencidas — cobrar agora', ml, y); y += 6; cabTab();
+      atrasadas.forEach(p => linha(p, VM, Math.floor((hoje - p.data) / 86400000) + ' dias de atraso'));
+      y += 4;
+    }
+    const meses = {}; futuras.forEach(p => { const k = p.data.getFullYear() + '-' + String(p.data.getMonth()+1).padStart(2,'0'); (meses[k] = meses[k] || []).push(p); });
+    Object.keys(meses).sort().forEach(k => {
+      const l = meses[k], [a, m] = k.split('-'); nova(30);
+      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(...TX); doc.text(nomes[parseInt(m)-1] + ' de ' + a, ml, y);
+      doc.setFontSize(9); doc.setTextColor(...CZ); doc.text(l.length + ' cobrança' + (l.length > 1 ? 's' : '') + ' · ' + fmt(l.reduce((s,p) => s + p.valor, 0)), W - mr, y, { align: 'right' }); y += 6; cabTab();
+      l.forEach(p => linha(p, TX)); y += 4;
+    });
+    if (credito.length) { nova(14); doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(...CZ);
+      doc.text('Não incluso: ' + credito.length + ' parcela(s) no crédito (' + fmt(credito.reduce((s,p) => s + p.valor, 0)) + '), que caem sozinhas na maquininha.', ml, y); }
+    const n = doc.getNumberOfPages(); for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(...CZ); doc.text('Absoluta Construtora e Incorporadora · Essence Residence · página ' + i + '/' + n, W/2, 292, { align: 'center' }); }
+    doc.save('Previsao_de_Cobrancas_' + dd(new Date()).replace(/\//g,'-') + '.pdf');
+    showToast('PDF gerado!', 'success');
+  } catch(e) { showToast('Erro ao gerar PDF: ' + e.message, 'error'); }
+  if (b) { b.disabled = false; b.textContent = 'Exportar PDF'; }
 }
 
 async function loadPrevisaoCobrancas() {
